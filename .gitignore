@@ -1,0 +1,10 @@
+node_modules/
+dist/
+data/temp_*
+data/tasks_*
+data/*.png
+*.log
+.env
+.DS_Store
+Thumbs.db
+

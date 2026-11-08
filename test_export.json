@@ -1,0 +1,31 @@
+{
+    "address":  "KOLKATA - 700001",
+    "principal":  "TEST PRINCIPAL",
+    "examiner_fee_note":  "Examiner fees for 2 school",
+    "state":  "West Bengal",
+    "centre_short_code":  "1011",
+    "bill_date":  "2026-11-08",
+    "examiner_fee_amount":  1200,
+    "seasonal_discount":  0,
+    "items":  [
+                  {
+                      "new_count":  2,
+                      "convocation_rate":  0,
+                      "old_count":  5,
+                      "exam_name":  "Prathama",
+                      "exam_fee":  100
+                  },
+                  {
+                      "new_count":  0,
+                      "convocation_rate":  0,
+                      "old_count":  3,
+                      "exam_name":  "Purna",
+                      "exam_fee":  150
+                  }
+              ],
+    "zone":  "Zone 4 (Kolkata)",
+    "centre_name":  "TEST KENDRA",
+    "bill_number":  "1011",
+    "rate_chart_id":  "kolkata",
+    "session":  "2026-2027"
+}

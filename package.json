@@ -1,0 +1,36 @@
+{
+  "name": "diploma-billing",
+  "version": "1.0.0",
+  "description": "Diploma Exam Billing Software for Suro Bharati Sangeet Kala Kendra",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"node server.js\" \"vite\"",
+    "build": "vite build",
+    "start": "node server.js",
+    "seed": "node server/seed-rates.js",
+    "import-centres": "node server/import-centres.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "exceljs": "^4.4.0",
+    "multer": "^1.4.5-lts.1",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.0",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.0.0",
+    "postcss": "^8.4.47",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0",
+    "lucide-react": "^0.460.0",
+    "tailwindcss": "^3.4.14",
+    "vite": "^5.4.0"
+  }
+}
+
