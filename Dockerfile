@@ -1,17 +1,19 @@
-# Base image with Node.js 20 & Debian 12 (Bookworm) - fully active & supported
+# Base image with Node.js 20 & Debian 12 (Bookworm)
 FROM node:20-bookworm-slim
 
-# Install Python 3, pip, LibreOffice, and poppler tools for Excel-to-image
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Python 3, LibreOffice Calc headless, fonts, and poppler tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
-    libreoffice \
+    python3-openpyxl \
+    python3-pil \
+    libreoffice-calc \
     poppler-utils \
     fonts-liberation \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
-
-# Install Python dependencies
-RUN pip3 install --no-cache-dir --break-system-packages openpyxl pillow
 
 WORKDIR /app
 

@@ -36,9 +36,11 @@ router.get('/excel/:billId', (req, res) => {
 
     const billPayload = JSON.stringify({ bill, items, templatePath, outPath, discountSlabs });
 
-    const pythonCmd = fs.existsSync('C:/Users/SASWATA/AppData/Local/Python/pythoncore-3.15-64/python.exe')
-      ? 'C:/Users/SASWATA/AppData/Local/Python/pythoncore-3.15-64/python.exe'
-      : (fs.existsSync('C:/Python315/python.exe') ? 'C:/Python315/python.exe' : 'python');
+    const pythonCmd = process.platform === 'win32'
+      ? (fs.existsSync('C:/Users/SASWATA/AppData/Local/Python/pythoncore-3.15-64/python.exe')
+          ? 'C:/Users/SASWATA/AppData/Local/Python/pythoncore-3.15-64/python.exe'
+          : (fs.existsSync('C:/Python315/python.exe') ? 'C:/Python315/python.exe' : 'python'))
+      : 'python3';
 
     const py = execFile(pythonCmd, [scriptPath], (err, stdout, stderr) => {
       if (err) {
@@ -116,9 +118,11 @@ router.post('/whatsapp-images', (req, res) => {
       discountSlabs
     });
 
-    const pythonCmd = fs.existsSync('C:/Users/SASWATA/AppData/Local/Python/pythoncore-3.15-64/python.exe')
-      ? 'C:/Users/SASWATA/AppData/Local/Python/pythoncore-3.15-64/python.exe'
-      : (fs.existsSync('C:/Python315/python.exe') ? 'C:/Python315/python.exe' : 'python');
+    const pythonCmd = process.platform === 'win32'
+      ? (fs.existsSync('C:/Users/SASWATA/AppData/Local/Python/pythoncore-3.15-64/python.exe')
+          ? 'C:/Users/SASWATA/AppData/Local/Python/pythoncore-3.15-64/python.exe'
+          : (fs.existsSync('C:/Python315/python.exe') ? 'C:/Python315/python.exe' : 'python'))
+      : 'python3';
 
     const py = execFile(pythonCmd, [scriptPath], (err, stdout, stderr) => {
       if (err) {

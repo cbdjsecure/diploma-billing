@@ -629,38 +629,79 @@ def run():
                 'filename': f"{base_caption}.png"
             })
 
-        # Run PowerShell batch rendering script
-        ps_script = os.path.join(script_dir, '../render_excel_images.ps1')
-        tasks_json_file = os.path.join(temp_dir, f"tasks_{os.getpid()}.json")
-        with open(tasks_json_file, 'w', encoding='utf-8') as f:
-            json.dump(tasks, f)
-
-        cmd = [
-            'powershell.exe',
-            '-ExecutionPolicy', 'Bypass',
-            '-File', ps_script,
-            tasks_json_file
-        ]
-        proc = subprocess.run(cmd, capture_output=True, text=True)
-
         rendered_images = []
-        if '---RESULT_START---' in proc.stdout:
-            json_str = proc.stdout.split('---RESULT_START---')[1].split('---RESULT_END---')[0].strip()
-            res_items = json.loads(json_str)
-            if isinstance(res_items, dict):
-                res_items = [res_items]
+        if sys.platform == 'win32':
+            # Run PowerShell batch rendering script on Windows
+            ps_script = os.path.join(script_dir, '../render_excel_images.ps1')
+            tasks_json_file = os.path.join(temp_dir, f"tasks_{os.getpid()}.json")
+            with open(tasks_json_file, 'w', encoding='utf-8') as f:
+                json.dump(tasks, f)
 
-            for item in res_items:
-                # Find matching task metadata
-                matching_task = next((t for t in tasks if t['key'] == item.get('key')), None)
-                rendered_images.append({
-                    'key': item.get('key'),
-                    'label': item.get('label') or (matching_task['label'] if matching_task else ''),
-                    'caption': matching_task['caption'] if matching_task else base_caption,
-                    'filename': matching_task['filename'] if matching_task else f"{base_caption}.png",
-                    'lastRow': item.get('lastRow'),
-                    'base64': item.get('base64')
-                })
+            cmd = [
+                'powershell.exe',
+                '-ExecutionPolicy', 'Bypass',
+                '-File', ps_script,
+                tasks_json_file
+            ]
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+
+            if '---RESULT_START---' in proc.stdout:
+                json_str = proc.stdout.split('---RESULT_START---')[1].split('---RESULT_END---')[0].strip()
+                res_items = json.loads(json_str)
+                if isinstance(res_items, dict):
+                    res_items = [res_items]
+
+                for item in res_items:
+                    matching_task = next((t for t in tasks if t['key'] == item.get('key')), None)
+                    rendered_images.append({
+                        'key': item.get('key'),
+                        'label': item.get('label') or (matching_task['label'] if matching_task else ''),
+                        'caption': matching_task['caption'] if matching_task else base_caption,
+                        'filename': matching_task['filename'] if matching_task else f"{base_caption}.png",
+                        'lastRow': item.get('lastRow'),
+                        'base64': item.get('base64')
+                    })
+            try:
+                if os.path.exists(tasks_json_file):
+                    os.remove(tasks_json_file)
+            except Exception:
+                pass
+        else:
+            # Linux (Docker / Render / Cloud): Use LibreOffice + pdftoppm
+            for t in tasks:
+                xlsx_path = t['xlsxPath']
+                base_name = os.path.splitext(os.path.basename(xlsx_path))[0]
+                # 1. Convert xlsx to pdf
+                subprocess.run(['soffice', '--headless', '--convert-to', 'pdf', '--outdir', temp_dir, xlsx_path], capture_output=True)
+                pdf_path = os.path.join(temp_dir, f"{base_name}.pdf")
+                if os.path.exists(pdf_path):
+                    # 2. Convert pdf to high-dpi png using pdftoppm
+                    png_prefix = os.path.join(temp_dir, f"png_{base_name}")
+                    subprocess.run(['pdftoppm', '-png', '-r', '200', pdf_path, png_prefix], capture_output=True)
+                    candidate_png = f"{png_prefix}-1.png"
+                    if not os.path.exists(candidate_png):
+                        candidates = [f for f in os.listdir(temp_dir) if f.startswith(f"png_{base_name}") and f.endswith('.png')]
+                        if candidates:
+                            candidate_png = os.path.join(temp_dir, candidates[0])
+
+                    if os.path.exists(candidate_png):
+                        with open(candidate_png, 'rb') as f_img:
+                            b64 = 'data:image/png;base64,' + base64.b64encode(f_img.read()).decode('utf-8')
+                        rendered_images.append({
+                            'key': t['key'],
+                            'label': t['label'],
+                            'caption': t['caption'],
+                            'filename': t['filename'],
+                            'base64': b64
+                        })
+                        try:
+                            os.remove(candidate_png)
+                        except Exception:
+                            pass
+                    try:
+                        os.remove(pdf_path)
+                    except Exception:
+                        pass
 
         # Cleanup intermediate files
         for p in cleanup_xlsx:
