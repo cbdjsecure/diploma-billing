@@ -1,8 +1,8 @@
-# Base image with Node.js 20 & Debian Linux
-FROM node:20-bullseye-slim
+# Base image with Node.js 20 & Debian 12 (Bookworm) - fully active & supported
+FROM node:20-bookworm-slim
 
 # Install Python 3, pip, LibreOffice, and poppler tools for Excel-to-image
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     libreoffice \
@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-RUN pip3 install --no-cache-dir openpyxl pillow
+RUN pip3 install --no-cache-dir --break-system-packages openpyxl pillow
 
 WORKDIR /app
 
@@ -28,4 +28,3 @@ ENV PORT=3001
 ENV NODE_ENV=production
 
 CMD ["node", "server.js"]
-
