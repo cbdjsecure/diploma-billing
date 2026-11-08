@@ -4,6 +4,7 @@ import os
 import re
 import zipfile
 import subprocess
+import base64
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 try:
