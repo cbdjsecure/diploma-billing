@@ -14,8 +14,13 @@ winget install OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-s
 echo [2/5] Installing Python 3...
 winget install Python.Python.3.12 --silent --accept-package-agreements --accept-source-agreements
 
-echo [3/5] Installing Cloudflare Tunnel (cloudflared)...
-winget install Cloudflare.cloudflared --silent --accept-package-agreements --accept-source-agreements
+echo [3/5] Setting up Cloudflare Tunnel (cloudflared.exe)...
+if not exist "%~dp0cloudflared.exe" (
+    echo Downloading standalone cloudflared.exe...
+    powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe' -OutFile '%~dp0cloudflared.exe' -UseBasicParsing"
+) else (
+    echo cloudflared.exe already present!
+)
 
 echo [4/5] Refreshing Environment Paths...
 for /f "tokens=2*" %%a in ('reg query "HKLM\System\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do set "SYS_PATH=%%b"
@@ -30,10 +35,10 @@ call npm run build
 echo.
 echo ===================================================================
 echo   SETUP COMPLETE!
-echo   You can now run:
-echo     - start-billing.bat            (Run locally on this PC)
-echo     - start-cloudflare-tunnel.bat  (Share over internet for Helpline)
+echo.
+echo   To run on this PC:
+echo     - start-billing.bat           (Run locally at http://localhost:3001)
+echo     - connect-office-tunnel.bat   (Connect permanently to billing.saswiko.in)
 echo ===================================================================
 echo.
 pause
-
