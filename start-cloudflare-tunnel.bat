@@ -8,7 +8,10 @@ echo.
 
 cd /d "%~dp0"
 
-:: 1. Start Node.js server in a separate background window if not already running
+:: 1. Ensure node is in PATH if using tools directory
+set PATH=C:\Users\SASWATA\.gemini\antigravity\tools\node-v22.11.0-win-x64;%PATH%
+
+:: 2. Start Node.js server in a separate background window if not already running
 netstat -ano | findstr :3001 >nul
 if %errorlevel% neq 0 (
     echo Starting Billing Server on port 3001...
@@ -26,14 +29,11 @@ echo   Share this link with your Helpline operator!
 echo ===================================================================
 echo.
 
-:: 2. Check if cloudflared is installed; if not, install via winget
-where cloudflared >nul 2>nul
-if %errorlevel% neq 0 (
-    echo Cloudflare CLI not found. Installing via winget...
-    winget install Cloudflare.cloudflared --silent --accept-package-agreements --accept-source-agreements
-    for /f "tokens=2*" %%a in ('reg query "HKLM\System\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do set "SYS_PATH=%%b"
-    set "PATH=%SYS_PATH%;%PATH%"
+:: 3. Run cloudflared (using local cloudflared.exe if present)
+if exist "%~dp0cloudflared.exe" (
+    "%~dp0cloudflared.exe" tunnel --url http://localhost:3001
+) else (
+    cloudflared tunnel --url http://localhost:3001
 )
 
-cloudflared tunnel --url http://localhost:3001
 pause
