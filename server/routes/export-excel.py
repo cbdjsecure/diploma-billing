@@ -6,8 +6,12 @@ import zipfile
 import subprocess
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.cell.rich_text import TextBlock, CellRichText
-from openpyxl.cell.text import InlineFont
+try:
+    from openpyxl.cell.rich_text import TextBlock, CellRichText
+    from openpyxl.cell.text import InlineFont
+    HAS_RICH_TEXT = True
+except (ImportError, AttributeError):
+    HAS_RICH_TEXT = False
 
 def sanitize_xlsx(xlsx_path, template_path):
     r"""
@@ -196,13 +200,20 @@ def populate_single_worksheet(ws, bill_meta, disc_key, items, zone, total_pct, s
     session_full = session_val if session_val.startswith('20') else f"20{session_val}"
     
     # Address is size 10; Session is size 14 with bold and underline
-    font_addr = InlineFont(rFont="Century Schoolbook", sz=10, b=True)
-    font_sess = InlineFont(rFont="Century Schoolbook", sz=14, b=True, u="single")
-
-    ws['B4'] = CellRichText([
-        TextBlock(font_addr, "19/I Vivekananda Lane , Serampore , Hooghly - 712201\n"),
-        TextBlock(font_sess, f"Session {session_full}")
-    ])
+    if HAS_RICH_TEXT:
+        try:
+            font_addr = InlineFont(rFont="Century Schoolbook", sz=10, b=True)
+            font_sess = InlineFont(rFont="Century Schoolbook", sz=14, b=True, u="single")
+            ws['B4'] = CellRichText([
+                TextBlock(font_addr, "19/I Vivekananda Lane , Serampore , Hooghly - 712201\n"),
+                TextBlock(font_sess, f"Session {session_full}")
+            ])
+        except Exception:
+            ws['B4'].value = f"19/I Vivekananda Lane , Serampore , Hooghly - 712201\nSession {session_full}"
+            ws['B4'].font = Font(name="Century Schoolbook", size=11, bold=True)
+    else:
+        ws['B4'].value = f"19/I Vivekananda Lane , Serampore , Hooghly - 712201\nSession {session_full}"
+        ws['B4'].font = Font(name="Century Schoolbook", size=11, bold=True)
     ws['B4'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
 
     ws['A6'] = 'Name of Institute - '
