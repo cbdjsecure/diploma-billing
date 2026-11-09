@@ -537,13 +537,23 @@ def populate_single_worksheet(ws, bill_meta, disc_key, items, zone, total_pct, s
     ws.cell(final_row, 5).number_format = '0'
     ws.cell(final_row, 6).value = None
 
-    # 7. Minimum Payable Row below Final Row when examinees < 15
+    # 7. Minimum Payable Row below Final Row when examinees < 15: Merged A to E, font size 16
     if min_payable > 0:
         min_row = final_row + 1
+        font_min_payable = Font(name='Calibri', size=16, bold=True)
         ws.cell(min_row, 1).value = f'Minimum Payable - {min_payable}'
-        ws.cell(min_row, 1).font = font_bold_12
-        ws.cell(min_row, 1).alignment = Alignment(vertical='center')
-        ws.row_dimensions[min_row].height = 20
+        ws.cell(min_row, 1).font = font_min_payable
+        ws.cell(min_row, 1).alignment = Alignment(horizontal='center', vertical='center')
+        ws.merge_cells(f'A{min_row}:E{min_row}')
+        ws.row_dimensions[min_row].height = 28
+
+        box_border_top = Side(style='medium')
+        box_border_bottom = Side(style='medium')
+        box_border_side = Side(style='medium')
+        for c in range(1, 6):
+            left_s = box_border_side if c == 1 else None
+            right_s = box_border_side if c == 5 else None
+            ws.cell(min_row, c).border = Border(top=box_border_top, bottom=box_border_bottom, left=left_s, right=right_s)
 
 
 def format_centre_caption(code):
