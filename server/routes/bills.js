@@ -12,14 +12,65 @@ if (!fs.existsSync(paymentUploadsDir)) {
   fs.mkdirSync(paymentUploadsDir, { recursive: true });
 }
 
+export function parsePaymentScreenshots(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {}
+    }
+    if (trimmed.length > 0) {
+      return [{
+        id: 'legacy_1',
+        url: trimmed,
+        original_name: path.basename(trimmed),
+        notes: '',
+        uploaded_at: ''
+      }];
+    }
+  }
+  return [];
+}
+
+function getCentreFolderName(billId) {
+  let folderName = 'general';
+  if (billId) {
+    try {
+      const bill = db.prepare('SELECT centre_short_code, bill_number FROM bills WHERE id = ?').get(billId);
+      if (bill) {
+        const rawCode = bill.centre_short_code || bill.bill_number;
+        if (rawCode) {
+          folderName = String(rawCode).trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+        }
+      }
+    } catch (e) {
+      console.warn('Error resolving folder for bill:', billId, e);
+    }
+  }
+  return folderName;
+}
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, paymentUploadsDir);
+    const billId = req.params.id;
+    const folderName = getCentreFolderName(billId);
+    const targetDir = path.join(paymentUploadsDir, folderName);
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+    file.centreFolder = folderName;
+    cb(null, targetDir);
   },
   filename: (req, file, cb) => {
-    const billId = req.params.id || 'bill';
     const ext = path.extname(file.originalname) || '.png';
-    const safeName = `payment_${billId}_${Date.now()}${ext}`;
+    const cleanOrig = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 30);
+    const timestamp = Date.now();
+    const rand = Math.random().toString(36).substring(2, 6);
+    const safeName = `payment_${timestamp}_${rand}_${cleanOrig}${ext}`;
     cb(null, safeName);
   }
 });
@@ -52,7 +103,12 @@ router.get('/', (req, res) => {
       : 'SELECT COUNT(*) as count FROM bills';
     const totalCount = q ? db.prepare(countQuery).get(`%${q}%`, `%${q}%`, `%${q}%`).count : db.prepare(countQuery).get().count;
 
-    res.json({ bills, total: totalCount });
+    const formattedBills = bills.map((b) => ({
+      ...b,
+      payment_screenshots: parsePaymentScreenshots(b.payment_screenshot)
+    }));
+
+    res.json({ bills: formattedBills, total: totalCount });
   } catch (err) {
     console.error('Error fetching bills:', err);
     res.status(500).json({ error: 'Failed to fetch bills' });
@@ -91,7 +147,11 @@ router.get('/:id', (req, res) => {
     }
 
     const items = db.prepare('SELECT * FROM bill_items WHERE bill_id = ? ORDER BY level_order ASC').all(id);
-    res.json({ ...bill, items });
+    res.json({
+      ...bill,
+      items,
+      payment_screenshots: parsePaymentScreenshots(bill.payment_screenshot)
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -318,54 +378,125 @@ router.post('/', (req, res) => {
   }
 });
 
-// Upload or replace payment screenshot for a bill
-router.post('/:id/payment-screenshot', upload.single('screenshot'), (req, res) => {
+// Upload or add payment screenshots for a bill (saved inside data/uploads/payments/<centre_short_code>/)
+router.post('/:id/payment-screenshot', upload.any(), (req, res) => {
   try {
     const { id } = req.params;
     const { notes } = req.body;
-    if (!req.file) {
-      return res.status(400).json({ error: 'No image file uploaded' });
+    const files = req.files || [];
+
+    const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(id);
+    if (!bill) {
+      return res.status(404).json({ error: 'Bill not found' });
     }
 
-    const relativeUrl = `/uploads/payments/${req.file.filename}`;
+    if (files.length === 0 && !notes) {
+      return res.status(400).json({ error: 'No image files uploaded or remarks provided' });
+    }
+
+    const existingList = parsePaymentScreenshots(bill.payment_screenshot);
     const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+    const centreFolder = getCentreFolderName(id);
+
+    const newScreenshots = files.map((f, idx) => {
+      const folder = f.centreFolder || centreFolder;
+      const relativeUrl = `/uploads/payments/${folder}/${f.filename}`;
+      return {
+        id: `proof_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`,
+        url: relativeUrl,
+        original_name: f.originalname || f.filename,
+        notes: notes || '',
+        uploaded_at: now
+      };
+    });
+
+    const updatedList = [...existingList, ...newScreenshots];
+    const updatedJson = JSON.stringify(updatedList);
+    const updatedNotes = notes
+      ? (bill.payment_notes ? `${bill.payment_notes}; ${notes}` : notes)
+      : (bill.payment_notes || '');
 
     db.prepare(`
       UPDATE bills 
       SET payment_screenshot = ?, payment_notes = ?, payment_uploaded_at = ?
       WHERE id = ?
-    `).run(relativeUrl, notes || '', now, id);
+    `).run(updatedJson, updatedNotes, now, id);
 
     res.json({
       success: true,
-      payment_screenshot: relativeUrl,
-      payment_notes: notes || '',
+      payment_screenshot: updatedJson,
+      payment_screenshots: updatedList,
+      payment_notes: updatedNotes,
       payment_uploaded_at: now
     });
   } catch (err) {
-    console.error('Error uploading payment screenshot:', err);
+    console.error('Error uploading payment screenshot(s):', err);
     res.status(500).json({ error: 'Failed to upload screenshot: ' + err.message });
   }
 });
 
-// Delete payment screenshot
+// Delete specific screenshot or all screenshots for a bill
 router.delete('/:id/payment-screenshot', (req, res) => {
   try {
     const { id } = req.params;
-    const bill = db.prepare('SELECT payment_screenshot FROM bills WHERE id = ?').get(id);
-    if (bill && bill.payment_screenshot) {
-      const filename = path.basename(bill.payment_screenshot);
-      const filePath = path.join(paymentUploadsDir, filename);
-      if (fs.existsSync(filePath)) {
-        try { fs.unlinkSync(filePath); } catch (e) {}
+    const { imageId, url } = req.query;
+
+    const bill = db.prepare('SELECT payment_screenshot, payment_notes FROM bills WHERE id = ?').get(id);
+    if (!bill) {
+      return res.status(404).json({ error: 'Bill not found' });
+    }
+
+    const existingList = parsePaymentScreenshots(bill.payment_screenshot);
+
+    if (imageId || url) {
+      // Remove specific screenshot
+      const remainingList = [];
+      for (const item of existingList) {
+        if ((imageId && item.id === imageId) || (url && item.url === url)) {
+          if (item.url && item.url.startsWith('/uploads/')) {
+            const relPath = item.url.replace(/^\/?uploads\//, '');
+            const filePath = path.join(__dirname, '../../data/uploads', relPath);
+            if (fs.existsSync(filePath)) {
+              try { fs.unlinkSync(filePath); } catch (e) {}
+            }
+          }
+        } else {
+          remainingList.push(item);
+        }
       }
+
+      const updatedJson = remainingList.length > 0 ? JSON.stringify(remainingList) : null;
       db.prepare(`
         UPDATE bills 
-        SET payment_screenshot = NULL, payment_notes = NULL, payment_uploaded_at = NULL 
+        SET payment_screenshot = ?
         WHERE id = ?
-      `).run(id);
+      `).run(updatedJson, id);
+
+      return res.json({
+        success: true,
+        payment_screenshot: updatedJson,
+        payment_screenshots: remainingList
+      });
     }
-    res.json({ success: true });
+
+    // Delete all screenshots for this bill
+    for (const item of existingList) {
+      if (item.url && item.url.startsWith('/uploads/')) {
+        const relPath = item.url.replace(/^\/?uploads\//, '');
+        const filePath = path.join(__dirname, '../../data/uploads', relPath);
+        if (fs.existsSync(filePath)) {
+          try { fs.unlinkSync(filePath); } catch (e) {}
+        }
+      }
+    }
+
+    db.prepare(`
+      UPDATE bills 
+      SET payment_screenshot = NULL, payment_notes = NULL, payment_uploaded_at = NULL 
+      WHERE id = ?
+    `).run(id);
+
+    res.json({ success: true, payment_screenshot: null, payment_screenshots: [] });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
