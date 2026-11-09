@@ -800,13 +800,7 @@ export default function BillingDesk({ loadedBillId, onClearLoadedBill }) {
 
     // Minimum Payable rule if student count in discipline is < 15 and > 0
     const minPayable = MINIMUM_PAYABLE_RATES[zone]?.[discKey] || 0;
-    let isMinApplied = false;
-    if (summ.totalExaminees > 0 && summ.totalExaminees < 15 && minPayable > 0) {
-      if (payable < minPayable) {
-        payable = minPayable;
-        isMinApplied = true;
-      }
-    }
+    const hasMinPayable = (summ.totalExaminees > 0 && summ.totalExaminees < 15 && minPayable > 0);
 
     return {
       ...summ,
@@ -819,7 +813,7 @@ export default function BillingDesk({ loadedBillId, onClearLoadedBill }) {
       examinerSchools: discData.examinerSchoolCount || '2',
       totalPayable: payable,
       minPayable,
-      isMinApplied
+      hasMinPayable
     };
   };
 
@@ -1694,17 +1688,19 @@ export default function BillingDesk({ loadedBillId, onClearLoadedBill }) {
               {b.totalExaminees}
             </div>
             <div className="col-span-4 text-center">
-              {discKey.toUpperCase()} Payable Exam Fees--
+              {isJoint ? `${discKey.toUpperCase()} Payable Exam Fees--` : 'Total Payable Exam Fees--'}
             </div>
             <div className="col-span-3 text-center font-mono text-base text-rose-800">
               Rs. {b.totalPayable.toFixed(1)}
-              {b.isMinApplied && (
-                <div className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded mt-0.5 inline-block">
-                  Min. ₹{b.minPayable} Applied
-                </div>
-              )}
             </div>
           </div>
+
+          {/* Minimum Payable row below Total Examinee / Total Payable */}
+          {b.hasMinPayable && (
+            <div className="mt-1.5 text-xs font-bold text-slate-900 font-sans pl-1">
+              Minimum Payable - {b.minPayable}
+            </div>
+          )}
         </div>
       </div>
     );

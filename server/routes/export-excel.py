@@ -504,10 +504,8 @@ def populate_single_worksheet(ws, bill_meta, disc_key, items, zone, total_pct, s
     if total_examinees_disc > 0 and total_examinees_disc < 15:
         min_payable = min_payable_map.get(norm_zone, {}).get(disc_key, 0)
 
-    if min_payable > 0:
-        sum_formula = f"=MAX({min_payable}," + "".join(formula_terms) + ")"
-    else:
-        sum_formula = "=" + "".join(formula_terms)
+    # Standard formula for Total Payable Exam Fees (no MAX formula, shows what is total payable only)
+    sum_formula = "=" + "".join(formula_terms)
 
     # 6. Final Row: Total Examinee & Total Payable Exam Fees
     # Column A: Label only
@@ -538,6 +536,14 @@ def populate_single_worksheet(ws, bill_meta, disc_key, items, zone, total_pct, s
     ws.cell(final_row, 5).border = Border(top=Side(style='medium'), bottom=Side(style='medium'), right=Side(style='medium'))
     ws.cell(final_row, 5).number_format = '0'
     ws.cell(final_row, 6).value = None
+
+    # 7. Minimum Payable Row below Final Row when examinees < 15
+    if min_payable > 0:
+        min_row = final_row + 1
+        ws.cell(min_row, 1).value = f'Minimum Payable - {min_payable}'
+        ws.cell(min_row, 1).font = font_bold_12
+        ws.cell(min_row, 1).alignment = Alignment(vertical='center')
+        ws.row_dimensions[min_row].height = 20
 
 
 def format_centre_caption(code):
