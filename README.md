@@ -1,217 +1,212 @@
-# Suro Bharati Sangeet Kala Kendra — Diploma Examination Billing Software
+# Suro Bharati Sangeet Kala Kendra — Diploma Billing System
+## ডিপ্লোমা পরীক্ষা বিলিং ও এক্সামিনেশন ফি ম্যানেজমেন্ট সফটওয়্যার
+### Official Technical Documentation & Executive Manual (অফিসিয়াল টেকনিক্যাল ও ব্যবহারিক ম্যানুয়াল)
 
-A specialized enterprise billing and examination fee management software engineered for **Suro Bharati Sangeet Kala Kendra** (*19/I, Vivekananda Lane, Serampore, Hooghly - 712201*).
-
----
-
-## 📖 Project Overview
-
-This application automates and standardizes the diploma examination billing system across more than 12,000 affiliated music, dance, recitation, and fine arts centres throughout India.
-
-It replaces error-prone manual Excel workbook calculations with an automated web application that:
-- Instantly auto-fills centre details from short codes (e.g., `0001`, `1011`).
-- Accurately computes fees based on five geographic zones and three artistic disciplines (*Indian Classical/Traditional, Western Music, and Yoga*).
-- Applies institutional concession slabs, seasonal discounts, and registration fees according to official Kendra rules.
-- Generates pixel-perfect official Excel workbooks (`.xlsx` and `.zip`) matching the Kendra's pre-printed template.
-- Generates high-definition bill images and enables one-click sequential dispatch directly to WhatsApp with standardized captions (e.g., `C-1011`, `C-1011 (Indian)`).
-- Provides role-based access control with distinct logins for **Office Admin** and **Helpline Staff**.
+> **সংস্থা (Organization):** Suro Bharati Sangeet Kala Kendra  
+> **হেড অফিস (Head Office):** 19/I, Vivekananda Lane, Serampore, Hooghly, West Bengal - 712201  
+> **ব্যবহারকারী (Target Audience):** Kendra Management, Office Administration, Helpline Staff & Centre In-charges  
+> **সিস্টেম ইউআরএল (Live Application):** `https://billing.saswiko.in` (Local: `http://localhost:3001`)
 
 ---
 
-## 🛠️ Technology Stack & Libraries
+## ১. Executive Overview (প্রকল্প পরিচিতি ও প্রেক্ষাপট)
 
-### Frontend (Client)
-- **React 18**: Modern component-based user interface.
-- **Vite 5**: Fast frontend tooling, HMR, and production bundler.
-- **Tailwind CSS v4**: Utility-first CSS framework for layout and responsive styling.
-- **Lucide React**: Clean, consistent icon set for desks, locks, and badges.
+**English:**  
+This enterprise web application is purpose-built for **Suro Bharati Sangeet Kala Kendra** to fully automate, digitize, and standardize the examination billing workflow for more than **12,800+ affiliated centres** across India and abroad. Previously, manual billing in Excel led to calculation discrepancies, slow WhatsApp dispatch, lost payment receipts, and confusion over zone rates. This application solves all those bottlenecks in one unified, automated system.
 
-### Backend (Server)
-- **Node.js (v20+ LTS)**: High-performance asynchronous backend runtime.
-- **Express.js**: REST API server handling billing endpoints, centre lookup, rate queries, and authentication.
-- **better-sqlite3**: Ultra-fast, synchronous embedded SQLite3 database running with WAL (Write-Ahead Logging) mode.
-- **CORS & Express JSON**: Handling cross-origin requests and high-payload image transfers.
-
-### Export & Document Engine
-- **Python 3**: Background worker executing calculation and workbook formatting.
-- **openpyxl (>= 3.1.2)**: Reads and writes Excel workbooks while preserving formulas, fonts, and cell merges.
-- **Pillow (PIL)**: Image processing, border trimming, and high-DPI scaling.
-- **LibreOffice Headless (`libreoffice-calc`)**: Converts Excel sheets into vector PDFs in Linux cloud environments.
-- **Poppler Utils (`pdftoppm`)**: Converts vector PDFs into ultra-high-resolution PNG images for WhatsApp dispatch.
-- **Windows PowerShell COM (`Excel.Application`)**: Hardware-accelerated 250% High-DPI table snapshotting on local Windows machines.
-
-### Containerization & Deployment
-- **Docker**: Debian 12 (Bookworm) container bundling Node.js, Python 3, LibreOffice, and system fonts.
-- **Render.com / Linux VM**: Cloud hosting delivering public HTTPS access with automated GitHub deployments.
+**বাংলা:**  
+সুর ভারতী সঙ্গীত কলা কেন্দ্রের ১২,৮০০-র বেশি অনুমোদিত শাখা বা পরীক্ষা কেন্দ্রের ডিপ্লোমা পরীক্ষা বিলিং সংক্রান্ত সমস্ত কাজ নির্ভুল ও দ্রুত করার জন্য এই আধুনিক এন্টারপ্রাইজ ওয়েব সফটওয়্যারটি তৈরি করা হয়েছে। ম্যানুয়াল বা হাতে তৈরি এক্সেল ফাইলে হিসাব করতে গিয়ে প্রায়শই কনসেশন পার্সেন্টেজ, জোনের রেট, রেজিস্ট্রেশন ফি এবং চূড়ামণি পরীক্ষার ফিতে নানা ভুলত্রুটি হতো। এই সফটওয়্যার ব্যবহারের মাধ্যমে সেই সমস্ত সমস্যা সম্পূর্ণ দূর করা হয়েছে এবং এক ক্লিকেই অফিসিয়াল এক্সেল শিট ও হোয়াটসঅ্যাপে বিলের ছবি পাঠানো সম্ভব হচ্ছে।
 
 ---
 
-## ⚙️ How It Works (End-to-End Workflow)
+## ২. Core Architecture & How It Was Built (কীভাবে এটি তৈরি করা হয়েছে)
+
+সফটওয়্যারটি একটি **3-Tier Modern Web Architecture**-এ তৈরি করা হয়েছে:
 
 ```
-[User / Operator]
-       │
-       ▼
-[Login Portal] ──► Authenticates Admin (admin147) or Helpline (help123)
-       │
-       ├─► (If Helpline) ──► Restricted to "Helpline Bill Desk" (Locked UI tabs)
-       │
-       └─► (If Admin) ──► Full Access to all Modules
-             │
-             ├── 1. Centre Search ──► Type Short Code (e.g. "1011") ──► SQLite Centre DB fills Name, Address, Phone, Zone
-             ├── 2. Discipline Entry ──► Select Single (Indian/Western/Yoga) or Joint Bill
-             ├── 3. Candidate Count ──► Enter Old / New examinees per Diploma level (Adya to 8th / Churamoni)
-             ├── 4. Automated Calculations:
-             │        • Gross Fees = Sum(Exam Fees) + Sum(Convocation Fees)
-             │        • Dynamic Concession = Slab % based on Candidate Count (0% to 45%)
-             │        • Churamoni Exclusion Rule for Indian bills
-             │        • Excel Decrease-Decimal Rounding (>= 0.5 rounds up, < 0.5 rounds down)
-             │        • Registration Fees = ₹23 × Total New Examinees
-             │        • Examiner Fees Deduction (optional custom notes & negative amount)
-             │        • Net Payable Calculation
-             │
-             ├── 5. Excel Export ──► Injects data into Kendra template without breaking XML/media/headers
-             │        • Single: ShortCode.xlsx
-             │        • Joint:  ShortCode.zip (containing Indian, Western, Yoga workbooks)
-             │
-             └── 6. WhatsApp Sharing ──► Dual Mode (Web & Desktop App):
-                      • Auto-copies rendered image to clipboard
-                      • Formats standardized caption: C-XXXX or C-XXXX (Indian)
-                      • Opens chat window with pre-filled caption; user presses Ctrl + V
+[ User Browser / Mobile / Desktop ]
+                │
+                ▼
+  [ Frontend Client: React 18 + Vite + Tailwind CSS ]
+                │  (Fast responsive UI, instant auto-calculations)
+                ▼
+  [ Backend REST API: Node.js + Express.js ]
+                │
+        ┌───────┴────────────────────────┬──────────────────────┐
+        ▼                                ▼                      ▼
+ [ SQLite Database (WAL) ]    [ Python openpyxl Engine ]   [ Cloudflare Tunnel ]
+ (12,800+ Centres, Bills,     (Preserves official Excel   (Encrypted HTTPS
+  Payment Screenshots)         Template, Header & Math)    Access Anywhere)
 ```
+
+1. **Frontend (User Interface):** দ্রুত কাজ করার জন্য তৈরি করা হয়েছে Single Page Application (SPA) হিসেবে। কোনো পেজ রিলোড ছাড়াই ডাটা টাইপ করার সাথে সাথে সমস্ত হিসাব চোখের পলকে স্ক্রিনে ফুটে ওঠে।
+2. **Backend (Server & APIs):** Node.js এবং Express.js দিয়ে শক্তিশালী সার্ভার তৈরি, যা নির্ভুলভাবে প্রতিটি সেন্টার সার্চ, ডাটাবেস কোয়েরি, এবং বিল প্রসেস করে।
+3. **Database Engine:** হাই-স্পিড SQLite ডাটাবেস যাতে **WAL (Write-Ahead Logging)** মোড চালু রাখা হয়েছে। এটি লোকাল হার্ডডিস্কে সরাসরি ডাটা সেভ করে এবং বিদ্যুত চলে গেলেও কোনো ডাটা নষ্ট হয় না।
+4. **Excel Template & Image Automation Engine:** Python `openpyxl` এবং হাই-রেজোলিউশন ইমেজ রেন্ডারার ব্যবহার করে কেন্দ্রের আসল প্রি-প্রিন্টেড বিলের ডিজাইন হুবহু বজায় রেখে এক্সেল ফাইল (`.xlsx`) ও হোয়াটসঅ্যাপ ইমেজ জেনারেট করে।
+5. **Secure Cloudflare Tunnel:** অফিসের যেকোনো কম্পিউটারকে কোনো ফিক্সড আইপি (Static IP) বা রাউটার পোর্ট ফরওয়ার্ডিং ছাড়াই নিরাপদ `https://billing.saswiko.in`-এর সাথে যুক্ত করে।
 
 ---
 
-## 🧩 Key Engineering Challenges & Solutions
+## ৩. Programming Languages & Core Libraries Used (ব্যবহৃত প্রোগ্রামিং ভাষা ও লাইব্রেরিসমূহ)
 
-### 1. Preserving Exact Excel Workbook Architecture & Formulas
-- **Problem**: When `openpyxl` modified and saved the official Excel template (`template.xlsx`), Microsoft Excel displayed repair errors (*"Excel found unreadable content... Do you want to recover?"*). Furthermore, the Kendra logo header and computer-generated footer were stripped by standard openpyxl saves.
-- **Solution**: We created a custom `sanitize_xlsx()` function. It operates on the raw `.xlsx` zip package, preserving `xl/media/image1.png`, restoring drawing relationships (`drawing1.xml.rels`), and re-injecting custom XML header/footer blocks (`<headerFooter>`) while removing legacy file link references. The result is a pristine workbook that opens without repair warnings.
-
-### 2. Excel "Decrease Decimal" Rounding Rules
-- **Problem**: Floating-point discount calculations produce decimals (e.g., `1205.5` or `1205.3`). In the official Excel ledger, fractional paise must match the Excel "Decrease Decimal" standard: values equal to or greater than `.5` round up (`1205.5` $\rightarrow$ `1206`), while values less than `.5` round down (`1205.4` $\rightarrow$ `1205`).
-- **Solution**: Embedded explicit `=ROUND(..., 0)` formulas in the generated Excel cells and updated the JavaScript calculation engine with mathematical round-half-up logic (`Math.round()`), guaranteeing ledger consistency between the web view and exported files.
-
-### 3. Churamoni Examination Percentage Exclusion Rule
-- **Problem**: For Indian Classical bills, the highest diploma level (*All India Churamoni Examination*) must **never** be discounted. Concessions apply only to standard diploma levels:
-  $$\text{Deduction} = (\text{Total Exam Fees} - \text{Churamoni Fees}) \times \text{Discount Percentage}$$
-- **Solution**: The backend dynamically identifies the exact row of the Churamoni entry (Row 18) and outputs dynamic cell subtraction formulas:
-  `=ROUND((E{total_row}-E{churamoni_row})*{pct_factor}, 0)`
-  For non-Indian disciplines (Western, Yoga) or bills without Churamoni candidates, standard total factoring is used automatically.
-
-### 4. Joint Bill Multi-Discipline Separation & Export
-- **Problem**: Many affiliated academies teach multiple disciplines (e.g., Indian Vocal and Western Guitar). Single bills could not accommodate separate rate charts and examiner fees under one centre code.
-- **Solution**: Built a multi-tab **Joint Bill Engine** allowing Indian Classical, Western Music, and Yoga to be entered under a single bill record. When exported, the system automatically creates three distinct formatted workbooks and packages them into a single clean ZIP archive named `[ShortCode].zip`.
-
-### 5. Multi-Image Clipboard Limitation for WhatsApp Sharing
-- **Problem**: When sharing joint bills, operating systems and browser clipboard APIs cannot copy two or three separate images to the clipboard simultaneously.
-- **Solution**: Designed a sequential **One-by-One (1-by-1)** workflow:
-  - **Step 1**: Copies Indian Part image to clipboard $\rightarrow$ opens chat with caption `C-XXXX (Indian)`.
-  - **Step 2**: Copies Western Part image to clipboard $\rightarrow$ opens chat with caption `C-XXXX (Western)`.
-  - **Step 3**: Copies Yoga Part image to clipboard $\rightarrow$ opens chat with caption `C-XXXX (Yoga)`.
-  The UI visually highlights `👉 Next to Send` and tracks progress with `✓ Sent` badges.
-
-### 6. Windows Excel COM vs. Linux Cloud Rendering
-- **Problem**: On Windows, the app used `powershell.exe` with `Excel.Application` COM to snapshot tables into PNGs. When deployed to a Linux cloud container (Docker / Render), PowerShell and Microsoft Excel are not present.
-- **Solution**: Implemented an automated cross-platform fallback in `export-excel.py`:
-  - On Windows: Uses hardware-accelerated Excel COM at 250% zoom.
-  - On Linux / Docker: Uses `soffice --headless --convert-to pdf` followed by `pdftoppm -png -r 200` to produce high-resolution bill PNGs on headless Linux servers.
-
-### 7. Role-Based Access Control & Locked Helpline UI
-- **Problem**: Helpline operators needed to view bills and dispatch them via WhatsApp, but should not have access to billing creation, rates, settings, or delete actions.
-- **Solution**:
-  - Implemented secure user authentication in SQLite (`users` table).
-  - Configured two roles: **Admin** (`admin` / `admin147`) and **Helpline** (`helpline` / `help123`).
-  - When logged in as Helpline, the user lands directly on the **Helpline Bill Desk**. All other tabs display a `🔒` lock icon, are unclickable, and trigger a helpful alert explaining access restrictions.
-
-### 8. Docker Build & Debian 12 Environment
-- **Problem**: Debian 11 ("bullseye") mirrors experienced 404 errors during apt-get package retrieval on cloud container builds, and older openpyxl packages lacked `CellRichText` support.
-- **Solution**: Upgraded base image to `node:20-bookworm-slim` (Debian 12), utilized `openpyxl>=3.1.2`, set `DEBIAN_FRONTEND=noninteractive`, and added conditional fallbacks for rich-text headers.
+| উপাদান (Component) | টেকনোলজি / লাইব্রেরি | কেন ব্যবহার করা হয়েছে (Purpose & Benefit) |
+| :--- | :--- | :--- |
+| **Frontend Framework** | **React.js 18** | আধুনিক, কম্পোনেন্ট-ভিত্তিক ফাস্ট ইউজার ইন্টারফেস। |
+| **Build Tool** | **Vite 5** | অতি দ্রুত কোড কম্পাইলেশন ও আল্ট্রা-লাইট প্রোডাকশন বিল্ড। |
+| **Styling & UI** | **Tailwind CSS v4** | ক্লিন, প্রফেশনাল রেসপন্সিভ ডিজাইন যা মোবাইল, ট্যাবলেট ও পিসিতে সমান সুন্দর দেখায়। |
+| **Icons & Indicators** | **Lucide React** | পরিষ্কার ও আধুনিক আইকন সেট (লক, প্রিন্ট, ক্যামেরা, শেয়ার ইত্যাদি)। |
+| **Backend Runtime** | **Node.js (v20+ LTS)** | হাই-পারফরম্যান্স অ্যাসিনক্রোনাস জাভাস্ক্রিপ্ট রানটাইম। |
+| **Server Framework** | **Express.js** | নিরাপদ REST API আর্কিটেকচার যা বিল, সেন্টার ও পেমেন্ট হ্যান্ডেল করে। |
+| **Database** | **better-sqlite3** | সি++ ভিত্তিক বিশ্বের দ্রুততম এমবেডেড SQLite ড্রাইভার (শূন্য লেটেন্সি)। |
+| **File Uploads** | **Multer** | পেমেন্ট স্ক্রিনশট ও ব্যাংক রসিদ সেন্টারের ফোল্ডার অনুযায়ী আপলোড ও ম্যানেজ করা। |
+| **Excel Manipulation** | **Python 3 + openpyxl** | কেন্দ্রের অফিসিয়াল এক্সেল টেমপ্লেটের লোগো, হেডার, ফুটার এবং ফর্মুলা নিখুঁতভাবে ইনজেক্ট করা। |
+| **Image Processing** | **Pillow (PIL)** | হোয়াটসঅ্যাপে পাঠানোর জন্য ক্রিস্টাল-ক্লিয়ার হাই-রেজোলিউশন বিল ইমেজ তৈরি। |
+| **Security & Remote Access** | **Cloudflare Zero Trust** | কোনো ওপেন পোর্ট ছাড়াই লোকাল সার্ভারকে নিরাপদ পাবলিক ক্লাউড ডোমেইনে ব্রডকাস্ট করা। |
 
 ---
 
-## 📂 Project Directory Structure
+## ৪. Key Features & Business Benefits (প্রধান সুবিধাসমূহ ও ফিচার)
 
-```
-diploma-billing/
-├── Dockerfile                  # Container definition for Linux/Render deployment
-├── package.json                # Node.js project manifest & dependencies
-├── vite.config.js              # Vite client bundler configuration
-├── server.js                   # Main Express application entry point
-│
-├── data/                       # Persistent data directory
-│   ├── billing.db              # SQLite database (Centres, Rates, Bills, Users)
-│   └── template.xlsx           # Official Kendra Excel template workbook
-│
-├── server/
-│   ├── database.js             # SQLite initialization & schema definitions
-│   ├── seed-rates.js           # Seeds 5-zone official rate charts & defaults
-│   ├── render_excel_images.ps1 # Windows high-DPI Excel COM image renderer
-│   │
-│   └── routes/
-│       ├── auth.js             # Authentication, login, & password management
-│       ├── bills.js            # Bill creation, editing, query, & deletion
-│       ├── centres.js          # Centre search & details API
-│       ├── rates.js            # Rate chart query endpoints
-│       ├── settings.js         # Global settings & concession slabs API
-│       ├── export.js           # Excel download & WhatsApp image dispatcher
-│       └── export-excel.py     # Python openpyxl engine & Linux headless renderer
-│
-└── src/                        # React Frontend Source Code
-    ├── App.jsx                 # Top-level state, session guard, & routing
-    ├── main.jsx                # React DOM entry point
-    │
-    └── components/
-        ├── Login.jsx           # Branded login screen with quick role selector
-        ├── Navbar.jsx          # Top navigation bar with locked tab indicators
-        ├── BillingDesk.jsx     # Main billing workstation (Single & Joint)
-        ├── BillHistory.jsx     # Ledger records, editing, export, & Helpline desk
-        ├── CentresDirectory.jsx# Centre database browser & search
-        ├── RateCharts.jsx      # 5-Zone rate chart viewer
-        └── SettingsView.jsx    # Slabs, board details, & password updates
-```
+1. **Short Code Exact Search (সঠিক সেন্টার কোড সার্চ):**
+   - শর্ট কোড `1011` টাইপ করলে শুধুমাত্র `1011` (*Nrityangan*) আসবে; `10110` বা অন্য কোনো সেন্টার ভুলবশত আসবে না। ঠিক `10110` টাইপ করলেই কেবল সেই সেন্টারটি আসবে।
+2. **Auto Zone & State Detection by Pincode (পিনকোড দেখে স্বয়ংক্রিয় জোন নির্বাচন):**
+   - ঠিকানার পিনকোড অনুযায়ী স্বয়ংক্রিয়ভাবে জোনের রেট নির্ধারিত হয়:
+     - **পিনকোড `700xxx`** $\rightarrow$ **Kolkata Zone**
+     - **পিনকোড `71-74`, `78-79`, `737`** $\rightarrow$ **West Bengal & North East Zone**
+     - **পিনকোড `49xxxx` (Chhattisgarh), `75-77` (Odisha), `80-85` (Bihar/Jharkhand)** $\rightarrow$ **Central East Zone**
+     - **অন্যান্য রাজ্য** $\rightarrow$ **Other States & UT Zone**
+   - এছাড়াও ছত্তিশগড়, ওড়িশা বা বিহারের টেক্সট লিখলেও স্বয়ংক্রিয়ভাবে সঠিক জোন সিলেক্ট হয়ে যায়।
+3. **Dynamic 9th Year Churamoni Exam Rates (চূড়ামণি পরীক্ষার পরিবর্তনশীল ফি):**
+   - মোট পরীক্ষার্থী ১৫ জনের কম হলে চূড়ামণি ফি স্বয়ংক্রিয়ভাবে **₹২,২০০** (অন্যান্য রাজ্যে **₹২,৬০০**) হবে।
+   - পরীক্ষার্থী ১৫ জন বা তার বেশি হলে চূড়ামণি ফি **₹১,৬০০** (অন্যান্য রাজ্যে **₹১,৯০০**) হবে।
+   - নিয়মমাফিক চূড়ামণি ফি-র ওপর কোনো ডিসকাউন্ট বা কনসেশন কাটা হয় না।
+4. **Minimum Payable Rates Rule (কম পরীক্ষার্থীর ক্ষেত্রে ন্যূনতম প্রদেয় ফি):**
+   - কোনো বিষয়ে পরীক্ষার্থী ১৫ জনের কম থাকলে এবং হিসাবকৃত মোট ফি ন্যূনতম রেটের কম হলে স্বয়ংক্রিয়ভাবে ন্যূনতম ফি প্রযোজ্য হয়:
+     - **WB, NE & Kolkata:** Indian ₹২,০০০ | Western ₹৪,৩০০ | Yoga ₹২,৫০০
+     - **Central East (CG, Odisha, Bihar):** Indian ₹৩,০০০ | Western ₹৫,৫০০ | Yoga ₹২,৫০০
+     - **Other States:** Indian ₹৪,০০০ | Western ₹৬,৪০০ | Yoga ₹২,৫০০
+5. **Multiple Payment Screenshots in Centre-Named Folders (পেমেন্ট প্রুফ সংরক্ষণ):**
+   - কোনো সেন্টার যদি দুটি কিস্তিতে (Half Payments) টাকা জমা দেয়, তবে হেল্পলাইন বা অ্যাডমিন একাধিক পেমেন্ট স্ক্রিনশট বা ব্যাংক রসিদ আপলোড করে রাখতে পারবেন।
+   - সার্ভারে স্বয়ংক্রিয়ভাবে সেই সেন্টারের শর্ট কোড দিয়ে ফোল্ডার তৈরি হয় (যেমন: `data/uploads/payments/1011/`) এবং সমস্ত ছবি সেখানে গোছানো থাকে।
+6. **1-Click WhatsApp Direct Delivery (এক ক্লিকে হোয়াটসঅ্যাপে পাঠানো):**
+   - কোনো ছবি সেভ করে খোঁজাখুঁজি করতে হয় না। এক ক্লিকেই বিলের ছবি ক্লিপবোর্ডে কপি হয়ে যায় এবং হোয়াটসঅ্যাপে নির্দিষ্ট ক্যাপশন সহ (যেমন: `C-1011` বা `C-1011 (Indian)`) চ্যাট ওপেন হয়ে যায়। শুধু পেস্ট (`Ctrl + V`) করলেই চলে যায়।
+7. **Role-Based Security (ভূমিকা ভিত্তিক নিরাপত্তা):**
+   - **Office Admin:** সমস্ত বিল তৈরি, এডিট, ডিলিট, এক্সেল এক্সপোর্ট এবং রেট পরিবর্তনের পূর্ণ ক্ষমতা।
+   - **Helpline Staff:** শুধুমাত্র বিল দেখা, হোয়াটসঅ্যাপে পাঠানো এবং পেমেন্ট স্ক্রিনশট আপলোড করার ক্ষমতা। বিল এডিট বা ডিলিট করার কোনো অপশন তাদের কাছে থাকে না।
 
 ---
 
-## 🚀 Local Installation & Running
-
-### Prerequisites
-- [Node.js (v20+ LTS)](https://nodejs.org)
-- [Python (v3.10+)](https://python.org)
-- [Git](https://git-scm.com)
-
-### 1. Clone & Install
-```bash
-git clone https://github.com/cbdjsecure/diploma-billing.git
-cd diploma-billing
-
-# Install Node dependencies
-npm install
-
-# Install Python dependencies
-pip install openpyxl pillow
-```
-
-### 2. Build & Run
-```bash
-# Build the React frontend
-npm run build
-
-# Start the server
-node server.js
-```
-Open **`http://localhost:3001`** in your browser.
+## ৫. Walkthrough & Tutorial of Each Tab (প্রতিটি ট্যাবের কাজ ও ব্যবহারের টিউটোরিয়াল)
 
 ---
 
-## 🌐 Default Login Credentials
+### Tab ১: New Bill Desk (নতুন বিল তৈরির ডেস্ক)
+**উদ্দেশ্য:** নতুন পরীক্ষা বিল তৈরি করা, হিসাব স্বয়ংক্রিয়ভাবে পরীক্ষা করা এবং সেভ ও প্রিন্ট করা।
 
-| Role | Username | Password | Access Level |
-| :--- | :--- | :--- | :--- |
-| **Office Admin** | `admin` | `admin147` | Full access to create bills, edit records, view rates, configure slabs, and manage accounts. |
-| **Kendra Helpline** | `helpline` | `help123` | Helpline Bill Desk only: search bills, view details, and share via WhatsApp. Other tabs are locked (`🔒`). |
+#### ব্যবহারের নিয়মাবলী (Step-by-step Tutorial):
+1. **Short Code লিখুন:**
+   - উপরের `Short Code` বক্সে সেন্টারের কোড লিখুন (যেমন: `1011` বা `0001`)।
+   - Enter প্রেস করলে বা বক্স থেকে বেরোলেই সেন্টারের নাম, অধ্যক্ষের নাম, সম্পূর্ণ ঠিকানা, ফোন নম্বর এবং জোন স্বয়ংক্রিয়ভাবে পূরণ হয়ে যাবে।
+2. **Discipline সিলেক্ট করুন:**
+   - সেন্টারটি যদি কেবল একটি বিষয়ে পরীক্ষা দেয়, তবে **Single Bill** (Indian, Western, অথবা Yoga) বেছে নিন।
+   - যদি একাধিক বিষয়ে পরীক্ষা দেয়, তবে **Joint Bill** নির্বাচন করুন।
+3. **পরীক্ষার্থীর সংখ্যা লিখুন (Candidate Entry):**
+   - ডিপ্লোমার স্তর অনুযায়ী (Adya, Madhya, Purna, 1st Year থেকে 8th Year এবং All India Churamoni) `Old` এবং `New` ক্যান্ডিডেট সংখ্যা বসান।
+   - টাইপ করার সাথে সাথে গ্রস ফি, কনসেশন, নতুন পরীক্ষার্থীর রেজিস্ট্রেশন ফি (প্রতি জন ₹২৩) স্বয়ংক্রিয়ভাবে হিসাব হয়ে যাবে।
+4. **পরীক্ষকের ফি সমন্বয় (Examiner Fee Deduction - Optional):**
+   - যদি কেন্দ্র থেকে পরীক্ষক ফি কাটা হয়, তবে পরীক্ষকের স্কুলের সংখ্যা এবং টাকার পরিমাণ লিখে দিন। মোট প্রদেয় টাকা থেকে তা স্বয়ংক্রিয়ভাবে মাইনাস হয়ে যাবে।
+5. **Save & Print:**
+   - নিচের **"Save & Finalize Bill"** বাটনে ক্লিক করলেই বিল ডাটাবেসে সেভ হয়ে যাবে এবং সরাসরি এক্সেল বা হোয়াটসঅ্যাপে শেয়ার করার অপশন চলে আসবে।
 
 ---
 
-## 📄 License & Credits
-Developed for **Suro Bharati Sangeet Kala Kendra**, Serampore, Hooghly. All rights reserved.
+### Tab ২: Bill History & Records (বিল হিস্ট্রি ও ডাটাবেস রেকর্ডস)
+**উদ্দেশ্য:** পূর্বে তৈরি হওয়া সমস্ত বিলের রেকর্ড দেখা, সার্চ করা, এক্সেল ফাইল ডাউনলোড করা এবং প্রয়োজনবোধে এডিট করা।
+
+#### ব্যবহারের নিয়মাবলী:
+1. **Search & Filter:** সার্চ বারে সেন্টারের শর্ট কোড বা নাম লিখলেই তৎক্ষণাৎ কাঙ্ক্ষিত বিলটি ফিল্টার হয়ে সামনে চলে আসবে।
+2. **View Modal (বিল ডিটেইলস দেখা):** `View` বাটনে ক্লিক করলে সম্পূর্ণ বিলের ব্রেকডাউন (ক্যান্ডিডেট সংখ্যা, বিষয়ভিত্তিক ফি, গ্রস এবং নেট পেয়াবল) পপ-আপ আকারে দেখা যাবে।
+3. **Edit Bill (বিল সংশোধন):** পেনসিল আইকনে ক্লিক করলে পুরনো বিলটি পুনরায় বিলিং ডেস্কে লোড হবে। প্রয়োজনীয় সংশোধন করে সেভ করলেই পূর্বের বিলটি আপডেট হয়ে যাবে।
+4. **Download Excel:** এক্সেল আইকনে ক্লিক করলে কেন্দ্রের প্রি-প্রিন্টেড টেমপ্লেটের অফিসিয়াল `.xlsx` ফাইল ডাউনলোড হবে। জয়েন্ট বিলের ক্ষেত্রে একটি `.zip` ফাইলের মধ্যে প্রতিটি বিষয়ের আলাদা এক্সেল শিট পেয়ে যাবেন।
+5. **Attach / View Paid Proof:** প্রতিটি বিলের পাশে সবুজ `Paid (N)` বা `Attach Proof` বাটনে ক্লিক করে রসিদ দেখা বা নতুন পেমেন্ট স্ক্রিনশট যুক্ত করা যাবে।
+
+---
+
+### Tab ৩: Helpline Bill Desk (হেল্পলাইন বিল ডেস্ক)
+**উদ্দেশ্য:** কেন্দ্রের হেল্পলাইন স্টাফদের জন্য ডেডিকেটেড ডেস্ক, যাতে তারা শিক্ষকদের দ্রুত বিল শেয়ার করতে এবং পেমেন্ট রসিদ ম্যানেজ করতে পারেন।
+
+#### ব্যবহারের নিয়মাবলী:
+- এই ট্যাবে কোনো বিল **Delete** বা **Edit** করার অপশন থাকে না, যাতে কোনো ডাটা অসাবধানতাবশত নষ্ট না হয়।
+- স্টাফরা সরাসরি **WhatsApp** বাটনে ক্লিক করে সংশ্লিষ্ট শিক্ষকের নম্বরে বিল ইমেজ শেয়ার করতে পারবেন।
+- পেমেন্ট রসিদ সংগ্রহ হলে **Attach Proof** বাটনে ক্লিক করে তাৎক্ষণিক ছবি ও ইউটিআর (UTR) নম্বর নোট করে রাখতে পারবেন।
+
+---
+
+### Tab ৪: Payment Proof Management (পেমেন্ট স্ক্রিনশট ও রসিদ ব্যবস্থাপনা)
+**উদ্দেশ্য:** সেন্টারের দেওয়া পেমেন্টের প্রমাণ (Google Pay, PhonePe, ব্যাংক ট্রান্সফার স্লিপ বা চেকের ছবি) সার্ভারে সংরক্ষণ করা।
+
+#### ব্যবহারের নিয়মাবলী:
+1. বিলের পাশে থাকা **"Attach Proof"** বা **"Paid Proof"** বাটনে ক্লিক করুন।
+2. পপ-আপে সেন্টারের নাম, বিল নম্বর এবং মোট প্রদেয় টাকা দেখা যাবে।
+3. **Select File:** এক বা একাধিক ইমেজ ফাইল (JPG, PNG) সিলেক্ট করুন।
+4. **Payment Remarks:** কিস্তির বিবরণ লিখুন (যেমন: *1st half ₹5000 via UPI UTR: 412356789* অথবা *2nd half ₹4300 Final* )।
+5. **Upload Button** প্রেস করলে ছবিগুলি সরাসরি সার্ভারে সেন্টারের নিজস্ব ফোল্ডারে (যেমন: `data/uploads/payments/1011/`) জমা হবে।
+6. প্রয়োজনে যেকোনো সময় যেকোনো নির্দিষ্ট স্ক্রিনশট বড় করে দেখা বা ডিলিট করা যাবে।
+
+---
+
+### Tab ৫: Centre Management (সেন্টার ডিরেক্টরি ও এক্সেল ইমপোর্ট)
+**উদ্দেশ্য:** কেন্দ্রের ১২,৮০০+ অনুমোদিত শাখা সেন্টারের মাস্টার লিস্ট সার্চ ও পরিচালনা করা।
+
+#### ব্যবহারের নিয়মাবলী:
+- **Search Centre:** শর্ট কোড, সেন্টারের নাম, অধ্যক্ষের নাম বা শহর দিয়ে যেকোনো সেন্টার মুহূর্তের মধ্যে খুঁজে বের করা যায়।
+- **Import Centres:** কেন্দ্রের অফিসিয়াল মাস্টার এক্সেল ফাইল আপলোড করে এক ক্লিকেই সম্পূর্ণ সেন্টারের ডাটাবেস আপডেট করা যায়।
+
+---
+
+### Tab ৬: Rate Charts & Slabs (ফি চার্ট ও কনসেশন স্ল্যাব কনফিগারেশন)
+**উদ্দেশ্য:** বিভিন্ন জোনের ডিপ্লোমা স্তরভিত্তিক ফি এবং পরীক্ষার্থী সংখ্যার ওপর প্রযোজ্য কনসেশন বা ডিসকাউন্ট স্ল্যাব পর্যবেক্ষণ ও পরিচালনা করা।
+
+#### ব্যবহারের নিয়মাবলী:
+- এখানে পাঁচটি জোনের (WB & NE, Other States, Central East, Kolkata, International) ফি চার্ট টেবিল আকারে সাজানো থাকে।
+- অ্যাডমিন প্রয়োজনে স্ল্যাবের পার্সেন্টেজ ও ফি পরিবর্তন করতে পারেন।
+
+---
+
+### Tab ৭: System Settings (সিস্টেম সেটিংস ও ব্যাকআপ)
+**উদ্দেশ্য:** হেল্পলাইন হোয়াটসঅ্যাপ নম্বর ও সিস্টেম কনফিগারেশন পরিচালনা করা।
+
+---
+
+## ৬. Calculation Accuracy & Mathematical Rules (হিসাবের নির্ভুলতা ও গাণিতিক নিয়ম)
+
+এই সফটওয়্যারটি সুর ভারতী সঙ্গীত কলা কেন্দ্রের অফিসিয়াল অডিট নিয়মের সাথে **১০০% নির্ভুলভাবে** সামঞ্জস্যপূর্ণ:
+
+1. **Excel Decrease-Decimal Half-Up Rounding:**  
+   $$\text{Final Rounded Value} = \text{Math.round}(x)$$
+   - ভগ্নাংশ ৫০ পয়সা বা তার বেশি হলে ওপরের পূর্ণসংখ্যায় রাউন্ড হবে (যেমন: `₹১২০৫.৫০` $\rightarrow$ `₹১২০৬`)।
+   - ৫০ পয়সার কম হলে নিচের সংখ্যায় থাকবে (যেমন: `₹১২০৫.৪০` $\rightarrow$ `₹১২০৫`)। এক্সেলের ফর্মুলাতেও `=ROUND(..., 0)` ব্যবহার করা হয়েছে।
+2. **Churamoni Exclusion Formula (চূড়ামণি ফি বাদ দিয়ে ছাড়):**  
+   $$\text{Concession Amount} = \Big(\text{Gross Exam Fees} - \text{Churamoni Fees}\Big) \times \frac{\text{Discount \%}}{100}$$
+   চূড়ামণি পরীক্ষার্থীদের ফি থেকে কখনোই কনসেশনের টাকা মাইনাস হয় না।
+3. **Registration Fees Rule:**  
+   $$\text{Registration Fee} = \text{Total New Examinees} \times ₹23$$
+   শুধুমাত্র নতুন পরীক্ষার্থীদের জন্য ₹২৩ হারে রেজিস্ট্রেশন ফি যোগ হয়।
+4. **Minimum Payable Threshold (ন্যূনতম ফি নিয়ম):**  
+   $$\text{Discipline Payable} = \max\Big(\text{Calculated Fees}, \text{Minimum Zone Rate}\Big)$$
+   ১৫ জনের কম পরীক্ষার্থী হলে সফটওয়্যার নিশ্চিত করে যে প্রদেয় টাকা কেন্দ্রের নির্ধারিত ন্যূনতম রেটের নিচে নামবে না।
+
+---
+
+## ৭. System Requirements & Operational Readiness (সিস্টেমের প্রয়োজনীয়তা ও ব্যাকআপ)
+
+- **অফিস পিসি কনফিগারেশন:** Windows 10 / 11, নূন্যতম 4GB RAM, Node.js ইনস্টল করা।
+- **রানিং মোড:** ডেস্কটপে থাকা `start-billing.bat` ডাবল-ক্লিক করলেই ব্রাউজারে স্বয়ংক্রিয়ভাবে সফটওয়্যার চালু হয়ে যায়।
+- **ডাটা ব্যাকআপ:** ডাটাবেস ফাইলটি `data/billing.db` এবং পেমেন্ট ছবিগুলি `data/uploads/payments/` ফোল্ডারে থাকে। পেনড্রাইভে এই দুটি ফোল্ডার কপি করে নিলেই ১০০% অফলাইন ব্যাকআপ সম্পন্ন হয়ে যায়।
+
+---
+
+### 🏛️ সারসংক্ষেপ (Summary for Management)
+এই সফটওয়্যারটি সুর ভারতী সঙ্গীত কলা কেন্দ্রের বহু বছরের ম্যানুয়াল ও সময়সাপেক্ষ বিলিং পদ্ধতিকে সম্পূর্ণ ডিজিটাল, নির্ভুল এবং স্মার্ট ব্যবস্থাপনায় রূপান্তরিত করেছে। এটি হিসাবের ১০০% স্বচ্ছতা নিশ্চিত করার পাশাপাশি কেন্দ্র ও শিক্ষকদের সাথে যোগাযোগকে বহুগুণ দ্রুত করেছে।
+
+*Prepared for Suro Bharati Sangeet Kala Kendra Administration.*
