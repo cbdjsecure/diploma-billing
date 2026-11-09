@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import db from './server/database.js';
 import { seedRatesAndSettings } from './server/seed-rates.js';
@@ -36,6 +37,13 @@ app.use('/api/auth', authRouter);
 // Serve static build in production
 const distPath = path.join(__dirname, 'dist');
 app.use(express.static(distPath));
+
+// Serve uploaded payment screenshots
+const uploadsPath = path.join(__dirname, 'data', 'uploads');
+if (!fs.existsSync(uploadsPath)) {
+  fs.mkdirSync(uploadsPath, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsPath));
 
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api')) {

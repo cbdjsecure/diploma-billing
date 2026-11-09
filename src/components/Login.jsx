@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, User, KeyRound, Eye, EyeOff, ShieldCheck, ArrowRight, AlertCircle, Headphones } from 'lucide-react';
+import { Lock, User, KeyRound, Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react';
 
 export default function Login({ onLoginSuccess }) {
   const [username, setUsername] = useState('');
@@ -38,12 +38,6 @@ export default function Login({ onLoginSuccess }) {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickLogin = (u, p) => {
-    setUsername(u);
-    setPassword(p);
-    setError('');
   };
 
   return (
@@ -141,42 +135,6 @@ export default function Login({ onLoginSuccess }) {
               )}
             </button>
           </form>
-
-          {/* Quick Login Role Selection */}
-          <div className="pt-3 border-t border-slate-100">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-2 text-center">
-              Quick Role Sign In
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('admin', 'admin147')}
-                className="p-2.5 rounded-xl border border-slate-200 hover:border-rose-400 bg-slate-50/80 hover:bg-rose-50/50 transition-all text-left flex items-start gap-2 group cursor-pointer"
-              >
-                <div className="p-1.5 rounded-lg bg-rose-100 text-rose-700 group-hover:bg-rose-200 transition-colors">
-                  <ShieldCheck className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-slate-800">Admin</div>
-                  <div className="text-[10px] text-slate-500">Full Access</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('helpline', 'help123')}
-                className="p-2.5 rounded-xl border border-slate-200 hover:border-emerald-400 bg-slate-50/80 hover:bg-emerald-50/50 transition-all text-left flex items-start gap-2 group cursor-pointer"
-              >
-                <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700 group-hover:bg-emerald-200 transition-colors">
-                  <Headphones className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-slate-800">Helpline</div>
-                  <div className="text-[10px] text-slate-500">Helpline Desk</div>
-                </div>
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Footer info */}

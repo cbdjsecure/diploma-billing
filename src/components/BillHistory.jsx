@@ -12,7 +12,11 @@ import {
   Check,
   ExternalLink,
   MessageSquare,
-  Copy
+  Copy,
+  Camera,
+  Receipt,
+  Upload,
+  AlertCircle
 } from 'lucide-react';
 
 const DISC_TITLES = {
@@ -31,6 +35,14 @@ export default function BillHistory({ onEditBill, isHelplineOnly = false }) {
   const [historyToast, setHistoryToast] = useState('');
   const [helplinePhone, setHelplinePhone] = useState(() => localStorage.getItem('kendra_helpline_phone') || '');
   const [copiedSteps, setCopiedSteps] = useState({});
+  const [paymentModal, setPaymentModal] = useState({
+    isOpen: false,
+    bill: null,
+    file: null,
+    previewUrl: '',
+    notes: '',
+    uploading: false
+  });
 
   useEffect(() => {
     fetch('/api/settings')
@@ -231,6 +243,150 @@ export default function BillHistory({ onEditBill, isHelplineOnly = false }) {
     }
   };
 
+  const handleOpenPaymentModal = (bill) => {
+    setPaymentModal({
+      isOpen: true,
+      bill,
+      file: null,
+      previewUrl: bill.payment_screenshot || '',
+      notes: bill.payment_notes || '',
+      uploading: false
+    });
+  };
+
+  const handleClosePaymentModal = () => {
+    if (paymentModal.file && paymentModal.previewUrl && !paymentModal.previewUrl.startsWith('/uploads')) {
+      try { URL.revokeObjectURL(paymentModal.previewUrl); } catch (e) {}
+    }
+    setPaymentModal({
+      isOpen: false,
+      bill: null,
+      file: null,
+      previewUrl: '',
+      notes: '',
+      uploading: false
+    });
+  };
+
+  const handlePaymentFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const localUrl = URL.createObjectURL(file);
+      setPaymentModal((prev) => ({
+        ...prev,
+        file,
+        previewUrl: localUrl
+      }));
+    }
+  };
+
+  const handleSavePaymentScreenshot = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!paymentModal.bill) return;
+
+    if (!paymentModal.file && !paymentModal.bill.payment_screenshot) {
+      alert('Please select an image file to upload as payment proof.');
+      return;
+    }
+
+    setPaymentModal((prev) => ({ ...prev, uploading: true }));
+    try {
+      const formData = new FormData();
+      if (paymentModal.file) {
+        formData.append('screenshot', paymentModal.file);
+      }
+      formData.append('notes', paymentModal.notes || '');
+
+      const res = await fetch(`/api/bills/${paymentModal.bill.id}/payment-screenshot`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Server responded with ${res.status}`);
+      }
+
+      const data = await res.json();
+      setHistoryToast('✅ Payment screenshot attached successfully!');
+      setTimeout(() => setHistoryToast(''), 5000);
+
+      // Update in table list
+      setBills((prev) =>
+        prev.map((b) =>
+          b.id === paymentModal.bill.id
+            ? {
+                ...b,
+                payment_screenshot: data.payment_screenshot,
+                payment_notes: data.payment_notes,
+                payment_uploaded_at: data.payment_uploaded_at
+              }
+            : b
+        )
+      );
+
+      // Update in view modal if active
+      if (activeModalBill && activeModalBill.id === paymentModal.bill.id) {
+        setActiveModalBill((prev) => ({
+          ...prev,
+          payment_screenshot: data.payment_screenshot,
+          payment_notes: data.payment_notes,
+          payment_uploaded_at: data.payment_uploaded_at
+        }));
+      }
+
+      handleClosePaymentModal();
+    } catch (err) {
+      alert('Upload failed: ' + err.message);
+      setPaymentModal((prev) => ({ ...prev, uploading: false }));
+    }
+  };
+
+  const handleDeletePaymentScreenshot = async () => {
+    if (!paymentModal.bill?.id) return;
+    if (!window.confirm('Are you sure you want to remove this payment screenshot?')) return;
+
+    setPaymentModal((prev) => ({ ...prev, uploading: true }));
+    try {
+      const res = await fetch(`/api/bills/${paymentModal.bill.id}/payment-screenshot`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) throw new Error('Failed to delete screenshot');
+
+      setHistoryToast('🗑️ Payment screenshot removed.');
+      setTimeout(() => setHistoryToast(''), 4000);
+
+      // Update in table list
+      setBills((prev) =>
+        prev.map((b) =>
+          b.id === paymentModal.bill.id
+            ? {
+                ...b,
+                payment_screenshot: null,
+                payment_notes: null,
+                payment_uploaded_at: null
+              }
+            : b
+        )
+      );
+
+      // Update in view modal if active
+      if (activeModalBill && activeModalBill.id === paymentModal.bill.id) {
+        setActiveModalBill((prev) => ({
+          ...prev,
+          payment_screenshot: null,
+          payment_notes: null,
+          payment_uploaded_at: null
+        }));
+      }
+
+      handleClosePaymentModal();
+    } catch (err) {
+      alert('Remove failed: ' + err.message);
+      setPaymentModal((prev) => ({ ...prev, uploading: false }));
+    }
+  };
+
   // Helper to parse joint data
   const getParsedJointData = (bill) => {
     if (!bill || !bill.joint_data) return null;
@@ -282,7 +438,7 @@ export default function BillHistory({ onEditBill, isHelplineOnly = false }) {
                 <th className="py-3 px-3 text-center">Examinees</th>
                 <th className="py-3 px-4 text-right">Gross (₹)</th>
                 <th className="py-3 px-4 text-right">Payable (₹)</th>
-                <th className="py-3 px-4 font-semibold text-center">{isHelplineOnly ? 'Share & View' : 'Actions'}</th>
+                <th className="py-3 px-4 font-semibold text-center">{isHelplineOnly ? 'Payment & Share' : 'Payment & Actions'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -336,6 +492,29 @@ export default function BillHistory({ onEditBill, isHelplineOnly = false }) {
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center justify-center gap-1.5">
+                        {/* Payment Proof Button - Helpline & Admin */}
+                        <button
+                          onClick={() => handleOpenPaymentModal(b)}
+                          title={b.payment_screenshot ? 'Payment Screenshot Attached (Click to view/manage)' : 'Attach Payment Screenshot'}
+                          className={
+                            b.payment_screenshot
+                              ? "px-2 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100 rounded-lg text-xs font-bold flex items-center gap-1 shadow-xs cursor-pointer transition-colors"
+                              : "px-2 py-1.5 bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                          }
+                        >
+                          {b.payment_screenshot ? (
+                            <>
+                              <Receipt className="w-3.5 h-3.5 text-emerald-600" />
+                              <span className="text-[11px]">Paid Proof</span>
+                            </>
+                          ) : (
+                            <>
+                              <Camera className="w-3.5 h-3.5 text-slate-400" />
+                              <span className="text-[11px]">Attach Proof</span>
+                            </>
+                          )}
+                        </button>
+
                         {/* Edit Button - Hidden in Helpline mode */}
                         {!isHelplineOnly && onEditBill && (
                           <button
@@ -451,6 +630,73 @@ export default function BillHistory({ onEditBill, isHelplineOnly = false }) {
                 <span className="text-slate-400 block font-medium">Total Payable</span>
                 <span className="font-bold text-rose-700 text-sm font-mono">₹{activeModalBill.total_payable}</span>
               </div>
+            </div>
+
+            {/* Payment Proof Card in Bill View Modal */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Receipt className="w-4 h-4 text-emerald-600" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700">Payment Verification</span>
+                  {activeModalBill.payment_screenshot ? (
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                      Proof Attached
+                    </span>
+                  ) : (
+                    <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full border border-amber-200">
+                      Pending Proof
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleOpenPaymentModal(activeModalBill)}
+                  className="text-xs font-semibold text-rose-600 hover:text-rose-800 bg-white border border-rose-200 hover:border-rose-300 px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-xs cursor-pointer"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  {activeModalBill.payment_screenshot ? 'Update / View Proof' : 'Attach Proof'}
+                </button>
+              </div>
+
+              {activeModalBill.payment_screenshot && (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 pt-2 border-t border-slate-200/60">
+                  <a
+                    href={activeModalBill.payment_screenshot}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group relative block w-24 h-24 rounded-lg overflow-hidden border border-slate-300 shadow-xs hover:ring-2 hover:ring-rose-500 shrink-0 bg-white"
+                  >
+                    <img
+                      src={activeModalBill.payment_screenshot}
+                      alt="Payment Receipt"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-bold transition-opacity">
+                      Click Enlarge
+                    </div>
+                  </a>
+                  <div className="text-xs space-y-1 text-slate-600">
+                    <div>
+                      <span className="font-semibold text-slate-700">Uploaded:</span> {activeModalBill.payment_uploaded_at || 'Recorded'}
+                    </div>
+                    {activeModalBill.payment_notes && (
+                      <div>
+                        <span className="font-semibold text-slate-700">Notes / UTR:</span> {activeModalBill.payment_notes}
+                      </div>
+                    )}
+                    <div className="pt-1">
+                      <a
+                        href={activeModalBill.payment_screenshot}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline flex items-center gap-1 text-[11px] font-medium"
+                      >
+                        <ExternalLink className="w-3 h-3" /> Open Full Image in New Tab
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* JOINT BILL VIEW: Render Indian, Western, and Yoga ONE BELOW ANOTHER (NOT MIXED) */}
@@ -852,6 +1098,150 @@ export default function BillHistory({ onEditBill, isHelplineOnly = false }) {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PAYMENT PROOF UPLOAD / VIEW MODAL */}
+      {paymentModal.isOpen && paymentModal.bill && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[92vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex justify-between items-start border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Receipt className="w-5 h-5 text-emerald-600" />
+                  Payment Screenshot & Proof
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Bill <b>{paymentModal.bill.bill_number}</b> • {paymentModal.bill.centre_name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleClosePaymentModal}
+                className="text-slate-400 hover:text-slate-600 font-bold p-1 rounded-lg hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+              {/* Payable reminder card */}
+              <div className="bg-rose-50 border border-rose-100 rounded-xl p-3 flex justify-between items-center text-xs">
+                <div>
+                  <span className="text-slate-500 block text-[11px]">Bill Payable Amount:</span>
+                  <span className="text-lg font-bold font-mono text-rose-700">₹{paymentModal.bill.total_payable}</span>
+                </div>
+                <div className="text-right text-[11px] text-slate-500">
+                  <span>Date: {paymentModal.bill.bill_date}</span>
+                  <span className="block font-mono">Total Candidates: {paymentModal.bill.total_examinees}</span>
+                </div>
+              </div>
+
+              {/* Existing Screenshot Preview or New Selection */}
+              {paymentModal.previewUrl ? (
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center text-xs font-semibold text-slate-700">
+                    <span>Attached Screenshot / Receipt:</span>
+                    {paymentModal.bill.payment_screenshot && (
+                      <button
+                        type="button"
+                        onClick={handleDeletePaymentScreenshot}
+                        disabled={paymentModal.uploading}
+                        className="text-rose-600 hover:text-rose-800 text-[11px] font-bold flex items-center gap-1 hover:underline cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Remove Screenshot
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative border border-slate-200 rounded-xl overflow-hidden bg-slate-900/5 max-h-64 flex items-center justify-center p-2 group">
+                    <img
+                      src={paymentModal.previewUrl}
+                      alt="Payment proof"
+                      className="max-h-60 max-w-full object-contain rounded-lg shadow-xs"
+                    />
+                    <a
+                      href={paymentModal.previewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="absolute bottom-3 right-3 bg-slate-900/85 hover:bg-slate-900 text-white text-[11px] font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1 backdrop-blur-xs transition-opacity shadow-md"
+                    >
+                      <ExternalLink className="w-3 h-3" /> Full Size
+                    </a>
+                  </div>
+                  {paymentModal.bill.payment_uploaded_at && (
+                    <p className="text-[11px] text-slate-400">
+                      Uploaded on: {paymentModal.bill.payment_uploaded_at}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center space-y-2 hover:border-rose-400 transition-colors bg-slate-50/50">
+                  <Upload className="w-8 h-8 text-slate-400 mx-auto" />
+                  <p className="text-xs font-semibold text-slate-700">
+                    Select payment receipt or screenshot
+                  </p>
+                  <p className="text-[11px] text-slate-400">
+                    Upload UPI screenshot, bank receipt, NEFT advice, or cheque photo
+                  </p>
+                </div>
+              )}
+
+              {/* File upload input */}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700 block">
+                  {paymentModal.previewUrl ? 'Change / Replace Screenshot Image:' : 'Upload Screenshot Image:'}
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePaymentFileSelect}
+                  className="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-rose-50 file:text-rose-700 hover:file:bg-rose-100 cursor-pointer border border-slate-200 rounded-xl p-1 bg-white"
+                />
+              </div>
+
+              {/* Payment Notes / UTR */}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700 block">
+                  Payment Reference / UTR / Remarks (Optional):
+                </label>
+                <input
+                  type="text"
+                  value={paymentModal.notes}
+                  onChange={(e) => setPaymentModal((prev) => ({ ...prev, notes: e.target.value }))}
+                  placeholder="e.g. UTR: 412356789012, Google Pay, SBI Cheque #123456"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-rose-500 font-sans"
+                />
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="flex justify-between items-center pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={handleClosePaymentModal}
+                disabled={paymentModal.uploading}
+                className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-800 rounded-xl hover:bg-slate-100 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSavePaymentScreenshot}
+                disabled={paymentModal.uploading || (!paymentModal.file && !paymentModal.bill.payment_screenshot && !paymentModal.notes)}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer"
+              >
+                {paymentModal.uploading ? (
+                  <span>Saving...</span>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Save Payment Proof</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

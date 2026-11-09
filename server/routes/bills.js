@@ -1,5 +1,32 @@
 import express from 'express';
+import multer from 'multer';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import db from '../database.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const paymentUploadsDir = path.join(__dirname, '../../data/uploads/payments');
+if (!fs.existsSync(paymentUploadsDir)) {
+  fs.mkdirSync(paymentUploadsDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, paymentUploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const billId = req.params.id || 'bill';
+    const ext = path.extname(file.originalname) || '.png';
+    const safeName = `payment_${billId}_${Date.now()}${ext}`;
+    cb(null, safeName);
+  }
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 25 * 1024 * 1024 }
+});
 
 const router = express.Router();
 
@@ -288,6 +315,59 @@ router.post('/', (req, res) => {
   } catch (err) {
     console.error('Error creating/updating bill:', err);
     res.status(500).json({ error: 'Failed to save bill: ' + err.message });
+  }
+});
+
+// Upload or replace payment screenshot for a bill
+router.post('/:id/payment-screenshot', upload.single('screenshot'), (req, res) => {
+  try {
+    const { id } = req.params;
+    const { notes } = req.body;
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file uploaded' });
+    }
+
+    const relativeUrl = `/uploads/payments/${req.file.filename}`;
+    const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+    db.prepare(`
+      UPDATE bills 
+      SET payment_screenshot = ?, payment_notes = ?, payment_uploaded_at = ?
+      WHERE id = ?
+    `).run(relativeUrl, notes || '', now, id);
+
+    res.json({
+      success: true,
+      payment_screenshot: relativeUrl,
+      payment_notes: notes || '',
+      payment_uploaded_at: now
+    });
+  } catch (err) {
+    console.error('Error uploading payment screenshot:', err);
+    res.status(500).json({ error: 'Failed to upload screenshot: ' + err.message });
+  }
+});
+
+// Delete payment screenshot
+router.delete('/:id/payment-screenshot', (req, res) => {
+  try {
+    const { id } = req.params;
+    const bill = db.prepare('SELECT payment_screenshot FROM bills WHERE id = ?').get(id);
+    if (bill && bill.payment_screenshot) {
+      const filename = path.basename(bill.payment_screenshot);
+      const filePath = path.join(paymentUploadsDir, filename);
+      if (fs.existsSync(filePath)) {
+        try { fs.unlinkSync(filePath); } catch (e) {}
+      }
+      db.prepare(`
+        UPDATE bills 
+        SET payment_screenshot = NULL, payment_notes = NULL, payment_uploaded_at = NULL 
+        WHERE id = ?
+      `).run(id);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

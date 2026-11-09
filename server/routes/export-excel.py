@@ -307,22 +307,27 @@ def populate_single_worksheet(ws, bill_meta, disc_key, items, zone, total_pct, s
     )
     is_yoga = (disc_key == 'yoga' or zone == 'yoga' or 'yoga' in str(bill_meta.get('category', '')).lower())
 
+    total_examinees_disc = sum((int(it.get('old_count') or 0) + int(it.get('new_count') or 0)) for it in items)
+
     churamoni_row = None
     for idx, item in enumerate(items):
         row_num = 10 + idx
         c1 = ws.cell(row_num, 1)
         raw_name = str(item.get('level_name') or '')
+        c2 = ws.cell(row_num, 2)
         if 'Churamoni' in raw_name:
             churamoni_row = row_num
             c1.value = 'All India Churamoni\nExamination'
             ws.row_dimensions[row_num].height = 33.6
+            is_zone2 = ('other' in str(zone).lower() or 'zone2' in str(zone).lower())
+            churamoni_rate = (2600 if is_zone2 else 2200) if total_examinees_disc < 15 else (1900 if is_zone2 else 1600)
+            c2.value = float(churamoni_rate)
         else:
             c1.value = raw_name
+            c2.value = float(item['exam_fee'])
         c1.font = font_normal
         c1.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
 
-        c2 = ws.cell(row_num, 2)
-        c2.value = float(item['exam_fee'])
         c2.font = font_normal
         c2.alignment = Alignment(horizontal='center', vertical='center')
 
@@ -473,7 +478,36 @@ def populate_single_worksheet(ws, bill_meta, disc_key, items, zone, total_pct, s
     if examiner_amount > 0:
         formula_terms.append(f"+E{ex_row}")
 
-    sum_formula = "=" + "".join(formula_terms)
+    # Minimum Payable Rates when student count < 15
+    min_payable_map = {
+        'zone1_ne_wb': {'indian': 2000, 'western': 4300, 'yoga': 2500},
+        'zone4_kolkata': {'indian': 2000, 'western': 4300, 'yoga': 2500},
+        'zone3_central_east': {'indian': 3000, 'western': 5500, 'yoga': 2500},
+        'zone2_other': {'indian': 4000, 'western': 6400, 'yoga': 2500},
+    }
+    norm_zone = 'zone1_ne_wb'
+    for zk in ['zone4_kolkata', 'zone3_central_east', 'zone2_other', 'zone1_ne_wb']:
+        if zk in str(zone).lower():
+            norm_zone = zk
+            break
+        elif zk == 'zone4_kolkata' and 'kolkata' in str(zone).lower():
+            norm_zone = zk
+            break
+        elif zk == 'zone3_central_east' and ('central' in str(zone).lower() or 'bihar' in str(zone).lower() or 'chhattisgarh' in str(zone).lower()):
+            norm_zone = zk
+            break
+        elif zk == 'zone2_other' and ('other' in str(zone).lower() or 'zone 2' in str(zone).lower()):
+            norm_zone = zk
+            break
+
+    min_payable = 0
+    if total_examinees_disc > 0 and total_examinees_disc < 15:
+        min_payable = min_payable_map.get(norm_zone, {}).get(disc_key, 0)
+
+    if min_payable > 0:
+        sum_formula = f"=MAX({min_payable}," + "".join(formula_terms) + ")"
+    else:
+        sum_formula = "=" + "".join(formula_terms)
 
     # 6. Final Row: Total Examinee & Total Payable Exam Fees
     # Column A: Label only

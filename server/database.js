@@ -112,6 +112,17 @@ db.exec(`
   );
 `);
 
+// Safe column migrations for payment screenshots on bills
+try {
+  db.prepare("ALTER TABLE bills ADD COLUMN payment_screenshot TEXT").run();
+} catch (e) {}
+try {
+  db.prepare("ALTER TABLE bills ADD COLUMN payment_notes TEXT").run();
+} catch (e) {}
+try {
+  db.prepare("ALTER TABLE bills ADD COLUMN payment_uploaded_at TEXT").run();
+} catch (e) {}
+
 // Seed default users if not already present
 const insertUser = db.prepare(`
   INSERT OR IGNORE INTO users (username, password, role, display_name)

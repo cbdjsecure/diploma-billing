@@ -19,6 +19,150 @@ import {
   Download
 } from 'lucide-react';
 
+export const MINIMUM_PAYABLE_RATES = {
+  zone1_ne_wb: { indian: 2000, western: 4300, yoga: 2500 },
+  zone4_kolkata: { indian: 2000, western: 4300, yoga: 2500 },
+  zone3_central_east: { indian: 3000, western: 5500, yoga: 2500 },
+  zone2_other: { indian: 4000, western: 6400, yoga: 2500 },
+};
+
+export const CHURAMONI_EXAM_RATES = {
+  zone1_ne_wb: { under15: 2200, equalOrAbove15: 1600 },
+  zone4_kolkata: { under15: 2200, equalOrAbove15: 1600 },
+  zone3_central_east: { under15: 2200, equalOrAbove15: 1600 },
+  zone2_other: { under15: 2600, equalOrAbove15: 1900 },
+};
+
+export const detectStateAndZoneFromAddress = (addressStr) => {
+  if (!addressStr) return { state: 'West Bengal', zone: 'zone1_ne_wb' };
+  const str = addressStr.toLowerCase();
+
+  // 1. PIN code detection
+  const pinMatch = str.match(/\b([1-9]\d{5})\b/);
+  if (pinMatch) {
+    const pin = pinMatch[1];
+    const p3 = parseInt(pin.substring(0, 3), 10);
+    const p2 = parseInt(pin.substring(0, 2), 10);
+
+    // Rule: Strictly 700xxx is Kolkata Zone
+    if (pin.startsWith('700')) {
+      return { state: 'Kolkata Zone', zone: 'zone4_kolkata' };
+    }
+
+    // WB & NE (Zone 1): 71-74, 78-79, 737
+    if ((p2 >= 71 && p2 <= 74) || (p2 >= 78 && p2 <= 79) || p3 === 737) {
+      if (p3 === 737) return { state: 'Sikkim', zone: 'zone1_ne_wb' };
+      if (p3 >= 781 && p3 <= 788) return { state: 'Assam', zone: 'zone1_ne_wb' };
+      if (p3 === 793 || p3 === 794) return { state: 'Meghalaya', zone: 'zone1_ne_wb' };
+      if (p3 === 795) return { state: 'Manipur', zone: 'zone1_ne_wb' };
+      if (p3 === 796) return { state: 'Mizoram', zone: 'zone1_ne_wb' };
+      if (p3 === 797) return { state: 'Nagaland', zone: 'zone1_ne_wb' };
+      if (p3 >= 790 && p3 <= 792) return { state: 'Arunachal Pradesh', zone: 'zone1_ne_wb' };
+      if (p3 === 799) return { state: 'Tripura', zone: 'zone1_ne_wb' };
+      return { state: 'West Bengal', zone: 'zone1_ne_wb' };
+    }
+
+    // Central East (Zone 3): 49 (Chhattisgarh), 75-77 (Odisha), 80-85 (Bihar/Jharkhand)
+    if (p2 === 49) {
+      return { state: 'Chhattisgarh', zone: 'zone3_central_east' };
+    }
+    if (p2 >= 75 && p2 <= 77) {
+      return { state: 'Odisha', zone: 'zone3_central_east' };
+    }
+    if ((p3 >= 814 && p3 <= 816) || (p3 >= 825 && p3 <= 835)) {
+      return { state: 'Jharkhand', zone: 'zone3_central_east' };
+    }
+    if (p2 >= 80 && p2 <= 85) {
+      return { state: 'Bihar', zone: 'zone3_central_east' };
+    }
+
+    // Other States & UTs (Zone 2)
+    if (p2 === 11) return { state: 'Delhi (U.T.)', zone: 'zone2_other' };
+    if (p2 === 12 || p2 === 13) return { state: 'Haryana', zone: 'zone2_other' };
+    if (p2 === 14 || p2 === 15) return { state: 'Punjab', zone: 'zone2_other' };
+    if (p2 === 16) return { state: 'Chandigarh (U.T.)', zone: 'zone2_other' };
+    if (p2 === 17) return { state: 'Himachal Pradesh', zone: 'zone2_other' };
+    if (p2 === 18 || p2 === 19) return { state: 'Jammu & Kashmir (U.T.)', zone: 'zone2_other' };
+    if (p2 >= 20 && p2 <= 28) {
+      if (p3 === 248 || p3 === 249 || p3 === 262 || p3 === 263) return { state: 'Uttarakhand', zone: 'zone2_other' };
+      return { state: 'Uttar Pradesh', zone: 'zone2_other' };
+    }
+    if (p2 >= 30 && p2 <= 34) return { state: 'Rajasthan', zone: 'zone2_other' };
+    if (p2 >= 36 && p2 <= 39) return { state: 'Gujarat', zone: 'zone2_other' };
+    if (p2 >= 40 && p2 <= 44) {
+      if (p3 === 403) return { state: 'Goa', zone: 'zone2_other' };
+      return { state: 'Maharashtra', zone: 'zone2_other' };
+    }
+    if (p2 >= 45 && p2 <= 48) return { state: 'Madhya Pradesh', zone: 'zone2_other' };
+    if (p2 >= 50 && p2 <= 53) {
+      if (p3 >= 500 && p3 <= 509) return { state: 'Telangana', zone: 'zone2_other' };
+      return { state: 'Andhra Pradesh', zone: 'zone2_other' };
+    }
+    if (p2 >= 56 && p2 <= 59) return { state: 'Karnataka', zone: 'zone2_other' };
+    if (p2 >= 60 && p2 <= 64) {
+      if (p3 === 605) return { state: 'Other State / U.T.', zone: 'zone2_other' };
+      return { state: 'Tamil Nadu', zone: 'zone2_other' };
+    }
+    if (p2 >= 67 && p2 <= 69) return { state: 'Kerala', zone: 'zone2_other' };
+  }
+
+  // 2. Text name matching fallback
+  if (str.includes('700') || str.includes('kolkata') || str.includes('calcutta')) {
+    return { state: 'Kolkata Zone', zone: 'zone4_kolkata' };
+  }
+  if (str.includes('chhattisgarh') || str.includes('chattisgarh') || str.includes('chhatisgarh') || str.includes('c.g.') || /\bcg\b/.test(str) || str.includes('raipur') || str.includes('bilaspur') || str.includes('bhilai') || str.includes('durg') || str.includes('korba') || str.includes('rajnandgaon') || str.includes('jagdalpur')) {
+    return { state: 'Chhattisgarh', zone: 'zone3_central_east' };
+  }
+  if (str.includes('bihar') || str.includes('patna') || str.includes('gaya') || str.includes('muzaffarpur') || str.includes('bhagalpur') || str.includes('darbhanga')) {
+    return { state: 'Bihar', zone: 'zone3_central_east' };
+  }
+  if (str.includes('jharkhand') || str.includes('ranchi') || str.includes('jamshedpur') || str.includes('dhanbad') || str.includes('bokaro') || str.includes('deoghar')) {
+    return { state: 'Jharkhand', zone: 'zone3_central_east' };
+  }
+  if (str.includes('odisha') || str.includes('orissa') || str.includes('bhubaneswar') || str.includes('cuttack') || str.includes('puri') || str.includes('rourkela') || str.includes('balasore') || str.includes('sambalpur')) {
+    return { state: 'Odisha', zone: 'zone3_central_east' };
+  }
+  if (str.includes('west bengal') || str.includes('wb') || str.includes('hooghly') || str.includes('howrah') || str.includes('serampore') || str.includes('burdwan') || str.includes('bardhaman') || str.includes('siliguri') || str.includes('jalpaiguri') || str.includes('midnapore') || str.includes('medinipur') || str.includes('nadia') || str.includes('murshidabad') || str.includes('birbhum') || str.includes('bankura') || str.includes('purulia') || str.includes('malda')) {
+    return { state: 'West Bengal', zone: 'zone1_ne_wb' };
+  }
+  if (str.includes('assam') || str.includes('guwahati') || str.includes('silchar') || str.includes('dibrugarh') || str.includes('jorhat') || str.includes('nagaon')) {
+    return { state: 'Assam', zone: 'zone1_ne_wb' };
+  }
+  if (str.includes('tripura') || str.includes('agartala')) {
+    return { state: 'Tripura', zone: 'zone1_ne_wb' };
+  }
+  if (str.includes('meghalaya') || str.includes('shillong')) {
+    return { state: 'Meghalaya', zone: 'zone1_ne_wb' };
+  }
+  if (str.includes('sikkim') || str.includes('gangtok')) {
+    return { state: 'Sikkim', zone: 'zone1_ne_wb' };
+  }
+  if (str.includes('delhi')) return { state: 'Delhi (U.T.)', zone: 'zone2_other' };
+  if (str.includes('uttar pradesh') || str.includes('up') || str.includes('lucknow') || str.includes('kanpur') || str.includes('varanasi') || str.includes('agra') || str.includes('noida') || str.includes('ghaziabad') || str.includes('prayagraj') || str.includes('allahabad')) {
+    return { state: 'Uttar Pradesh', zone: 'zone2_other' };
+  }
+  if (str.includes('madhya pradesh') || str.includes('mp') || str.includes('bhopal') || str.includes('indore') || str.includes('jabalpur') || str.includes('gwalior')) {
+    return { state: 'Madhya Pradesh', zone: 'zone2_other' };
+  }
+  if (str.includes('maharashtra') || str.includes('mumbai') || str.includes('pune') || str.includes('nagpur') || str.includes('nashik') || str.includes('aurangabad')) {
+    return { state: 'Maharashtra', zone: 'zone2_other' };
+  }
+  if (str.includes('rajasthan') || str.includes('jaipur') || str.includes('jodhpur') || str.includes('udaipur') || str.includes('kota')) {
+    return { state: 'Rajasthan', zone: 'zone2_other' };
+  }
+  if (str.includes('gujarat') || str.includes('ahmedabad') || str.includes('surat') || str.includes('vadodara') || str.includes('rajkot')) {
+    return { state: 'Gujarat', zone: 'zone2_other' };
+  }
+  if (str.includes('punjab')) {
+    return { state: 'Punjab', zone: 'zone2_other' };
+  }
+  if (str.includes('haryana')) {
+    return { state: 'Haryana', zone: 'zone2_other' };
+  }
+
+  return { state: 'West Bengal', zone: 'zone1_ne_wb' };
+};
+
 const STATE_ZONE_MAP = {
   'West Bengal': 'zone1_ne_wb',
   'Assam': 'zone1_ne_wb',
@@ -349,17 +493,35 @@ export default function BillingDesk({ loadedBillId, onClearLoadedBill }) {
   // 5. Short Code Search & Keyboard Selection
   const handleShortCodeSearch = (val) => {
     setShortCode(val);
-    if (!val || val.trim().length < 1) {
+    const cleanVal = val ? val.trim() : '';
+    if (!cleanVal || cleanVal.length < 1) {
       setCentreSearchResults([]);
       setActiveSearchIndex(0);
       return;
     }
-    fetch(`/api/centres/search?q=${encodeURIComponent(val.trim())}`)
+    fetch(`/api/centres/search?q=${encodeURIComponent(cleanVal)}`)
       .then((res) => res.json())
       .then((data) => {
-        setCentreSearchResults(data || []);
-        setActiveSearchIndex(0);
+        const results = data || [];
+        setCentreSearchResults(results);
+        const exactIdx = results.findIndex(
+          (c) => String(c.short_code).trim() === cleanVal || String(c.centre_code).trim() === cleanVal
+        );
+        setActiveSearchIndex(exactIdx >= 0 ? exactIdx : 0);
       });
+  };
+
+  const handleShortCodeBlur = () => {
+    const cleanVal = shortCode ? shortCode.trim() : '';
+    if (!cleanVal) return;
+    fetch(`/api/centres/${encodeURIComponent(cleanVal)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((exactCentre) => {
+        if (exactCentre && !exactCentre.error && String(exactCentre.short_code).trim() === cleanVal) {
+          selectCentre(exactCentre);
+        }
+      })
+      .catch(() => {});
   };
 
   const selectCentre = (c) => {
@@ -371,26 +533,8 @@ export default function BillingDesk({ loadedBillId, onClearLoadedBill }) {
     setPhone(c.whatsapp || c.phone1 || c.phone2 || '');
     setCentreSearchResults([]);
 
-    const lower = fullAddr.toLowerCase();
-    if (/\b700\d{3}\b/.test(lower) || lower.includes('kolkata - 700') || lower.includes('calcutta')) {
-      handleStateChange('Kolkata Zone');
-    } else if (lower.includes('west bengal') || lower.includes('wb') || /\b7[1-4]\d{4}\b/.test(lower)) {
-      handleStateChange('West Bengal');
-    } else if (lower.includes('bihar')) {
-      handleStateChange('Bihar');
-    } else if (lower.includes('jharkhand')) {
-      handleStateChange('Jharkhand');
-    } else if (lower.includes('odisha') || lower.includes('orissa')) {
-      handleStateChange('Odisha');
-    } else if (lower.includes('assam')) {
-      handleStateChange('Assam');
-    } else if (lower.includes('tripura')) {
-      handleStateChange('Tripura');
-    } else if (lower.includes('delhi')) {
-      handleStateChange('Delhi (U.T.)');
-    } else if (lower.includes('uttar pradesh') || lower.includes('up')) {
-      handleStateChange('Uttar Pradesh');
-    }
+    const detected = detectStateAndZoneFromAddress(fullAddr);
+    handleStateChange(detected.state);
 
     setTimeout(() => {
       const activeDisc = billMode === 'joint' ? (jointViewMode === 'stacked' ? activeDisciplinesList[0] : activeTab) : singleCategory;
@@ -402,18 +546,25 @@ export default function BillingDesk({ loadedBillId, onClearLoadedBill }) {
   };
 
   const handleShortCodeKeyDown = (e) => {
-    if (centreSearchResults.length === 0) return;
+    const cleanVal = shortCode ? shortCode.trim() : '';
 
     if (e.key === 'ArrowDown') {
+      if (centreSearchResults.length === 0) return;
       e.preventDefault();
       setActiveSearchIndex((prev) => (prev + 1) % centreSearchResults.length);
     } else if (e.key === 'ArrowUp') {
+      if (centreSearchResults.length === 0) return;
       e.preventDefault();
       setActiveSearchIndex((prev) => (prev - 1 + centreSearchResults.length) % centreSearchResults.length);
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (centreSearchResults[activeSearchIndex]) {
+      const exactMatch = centreSearchResults.find((c) => String(c.short_code).trim() === cleanVal);
+      if (exactMatch) {
+        selectCentre(exactMatch);
+      } else if (centreSearchResults[activeSearchIndex]) {
         selectCentre(centreSearchResults[activeSearchIndex]);
+      } else {
+        handleShortCodeBlur();
       }
     } else if (e.key === 'Escape') {
       setCentreSearchResults([]);
@@ -537,24 +688,36 @@ export default function BillingDesk({ loadedBillId, onClearLoadedBill }) {
 
     const queryZone = disciplineKey === 'yoga' ? 'yoga' : zone;
 
+    // Check raw candidate count first to determine dynamic Churamoni fee (< 15 vs >= 15)
+    let rawExaminees = 0;
+    (disc.items || []).forEach((item) => {
+      rawExaminees += (parseInt(item.old_count) || 0) + (parseInt(item.new_count) || 0);
+    });
+
+    const isZone2 = (queryZone === 'zone2_other');
+    const dynamicChuramoniFee = rawExaminees < 15
+      ? (isZone2 ? 2600 : 2200)
+      : (isZone2 ? 1900 : 1600);
+
     (disc.items || []).forEach((item) => {
       const oldC = parseInt(item.old_count) || 0;
       const newC = parseInt(item.new_count) || 0;
       const lineEx = oldC + newC;
-      const examFee = parseFloat(item.exam_fee) || 0;
+      const isChuramoni = item.level_name && item.level_name.includes('Churamoni');
+      const examFee = isChuramoni ? dynamicChuramoniFee : (parseFloat(item.exam_fee) || 0);
       const convFee = (queryZone === 'zone1_ne_wb' || disciplineKey === 'yoga') ? 0 : (parseFloat(item.convocation_fee) || 0);
 
       totalOld += oldC;
       totalNew += newC;
       grossFees += lineEx * examFee;
       convocationFees += lineEx * convFee;
-      if (item.level_name && item.level_name.includes('Churamoni')) {
+      if (isChuramoni) {
         churamoniFees += lineEx * examFee;
       }
     });
 
     const totalExaminees = totalOld + totalNew;
-    return { totalOld, totalNew, totalExaminees, grossFees, convocationFees, churamoniFees };
+    return { totalOld, totalNew, totalExaminees, grossFees, convocationFees, churamoniFees, dynamicChuramoniFee };
   };
 
   // Active disciplines list
@@ -633,7 +796,18 @@ export default function BillingDesk({ loadedBillId, onClearLoadedBill }) {
     const afterDisc = summ.grossFees - discAmt;
     const regFees = summ.totalNew * 23;
     const exAmt = parseFloat(discData.examinerFeeAmount) || 0;
-    const payable = afterDisc + regFees + summ.convocationFees - exAmt;
+    let payable = afterDisc + regFees + summ.convocationFees - exAmt;
+
+    // Minimum Payable rule if student count in discipline is < 15 and > 0
+    const minPayable = MINIMUM_PAYABLE_RATES[zone]?.[discKey] || 0;
+    let isMinApplied = false;
+    if (summ.totalExaminees > 0 && summ.totalExaminees < 15 && minPayable > 0) {
+      if (payable < minPayable) {
+        payable = minPayable;
+        isMinApplied = true;
+      }
+    }
+
     return {
       ...summ,
       discData,
@@ -643,7 +817,9 @@ export default function BillingDesk({ loadedBillId, onClearLoadedBill }) {
       registrationFees: regFees,
       examinerAmount: exAmt,
       examinerSchools: discData.examinerSchoolCount || '2',
-      totalPayable: payable
+      totalPayable: payable,
+      minPayable,
+      isMinApplied
     };
   };
 
@@ -1350,12 +1526,14 @@ export default function BillingDesk({ loadedBillId, onClearLoadedBill }) {
               {discItems.map((item, idx) => {
                 const oldCount = parseInt(item.old_count) || 0;
                 const newCount = parseInt(item.new_count) || 0;
-                const lineTotal = (oldCount + newCount) * (item.exam_fee || 0);
+                const isChuramoni = item.level_name?.includes('Churamoni');
+                const effectiveExamFee = isChuramoni ? b.dynamicChuramoniFee : (item.exam_fee || 0);
+                const lineTotal = (oldCount + newCount) * effectiveExamFee;
 
                 return (
                   <tr key={item.id || idx} className="hover:bg-slate-50/60">
                     <td className="py-2 px-3 text-center font-normal text-slate-800 leading-snug">
-                      {item.level_name?.includes('Churamoni') ? (
+                      {isChuramoni ? (
                         <div className="leading-tight">
                           <div>All India Churamoni</div>
                           <div>Examination</div>
@@ -1364,8 +1542,8 @@ export default function BillingDesk({ loadedBillId, onClearLoadedBill }) {
                         item.level_name
                       )}
                     </td>
-                    <td className="py-2 px-2 text-slate-700 font-mono">
-                      {item.exam_fee}
+                    <td className="py-2 px-2 text-slate-700 font-mono font-bold">
+                      {effectiveExamFee}
                     </td>
                     {/* Col 0: Old Examinee input */}
                     <td className="py-1 px-2">
@@ -1520,6 +1698,11 @@ export default function BillingDesk({ loadedBillId, onClearLoadedBill }) {
             </div>
             <div className="col-span-3 text-center font-mono text-base text-rose-800">
               Rs. {b.totalPayable.toFixed(1)}
+              {b.isMinApplied && (
+                <div className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded mt-0.5 inline-block">
+                  Min. ₹{b.minPayable} Applied
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1544,6 +1727,7 @@ export default function BillingDesk({ loadedBillId, onClearLoadedBill }) {
                 value={shortCode}
                 onChange={(e) => handleShortCodeSearch(e.target.value)}
                 onKeyDown={handleShortCodeKeyDown}
+                onBlur={handleShortCodeBlur}
                 placeholder="e.g. 1011"
                 className="w-28 px-3 py-1.5 border-2 border-slate-300 rounded-xl text-sm font-mono font-bold focus:border-rose-500 focus:outline-none"
               />

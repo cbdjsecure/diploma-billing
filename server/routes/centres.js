@@ -145,17 +145,34 @@ router.get('/search', (req, res) => {
     }
 
     const searchPattern = `%${q}%`;
+    const startsPattern = `${q}%`;
+
     const stmt = db.prepare(`
       SELECT * FROM centres 
-      WHERE short_code LIKE ? 
+      WHERE short_code = ?
+         OR short_code LIKE ? 
+         OR centre_code = ?
          OR centre_code LIKE ? 
          OR centre_name LIKE ? 
          OR principal LIKE ? 
          OR address LIKE ?
+      ORDER BY 
+        CASE 
+          WHEN short_code = ? THEN 0
+          WHEN centre_code = ? THEN 1
+          WHEN short_code LIKE ? THEN 2
+          WHEN centre_code LIKE ? THEN 3
+          ELSE 4
+        END,
+        LENGTH(short_code) ASC,
+        short_code ASC
       LIMIT 30
     `);
 
-    const results = stmt.all(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
+    const results = stmt.all(
+      q, searchPattern, q, searchPattern, searchPattern, searchPattern, searchPattern,
+      q, q, startsPattern, startsPattern
+    );
     res.json(results);
   } catch (err) {
     console.error('Error searching centres:', err);
