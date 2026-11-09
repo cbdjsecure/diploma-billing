@@ -537,10 +537,10 @@ def populate_single_worksheet(ws, bill_meta, disc_key, items, zone, total_pct, s
     ws.cell(final_row, 5).number_format = '0'
     ws.cell(final_row, 6).value = None
 
-    # 7. Minimum Payable Row below Final Row when examinees < 15: Merged A to E, font size 16
+    # 7. Minimum Payable Row below Final Row when examinees < 15: Merged A to E, font Century Schoolbook size 16
     if min_payable > 0:
         min_row = final_row + 1
-        font_min_payable = Font(name='Calibri', size=16, bold=True)
+        font_min_payable = Font(name='Century Schoolbook', size=16, bold=True)
         ws.cell(min_row, 1).value = f'Minimum Payable - {min_payable}'
         ws.cell(min_row, 1).font = font_min_payable
         ws.cell(min_row, 1).alignment = Alignment(horizontal='center', vertical='center')

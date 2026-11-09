@@ -1695,9 +1695,12 @@ export default function BillingDesk({ loadedBillId, onClearLoadedBill }) {
             </div>
           </div>
 
-          {/* Minimum Payable row: merged across A to E, text size 16, bold, centered */}
+          {/* Minimum Payable row: merged across A to E, font Century Schoolbook, text size 16, bold, centered */}
           {b.hasMinPayable && (
-            <div className="mt-2 border-2 border-slate-900 rounded-sm p-2 text-center text-[16px] font-bold text-slate-900 tracking-wide bg-slate-50/50">
+            <div 
+              style={{ fontFamily: "'Century Schoolbook', 'Times New Roman', serif" }}
+              className="mt-2 border-2 border-slate-900 rounded-sm p-2 text-center text-[16px] font-bold text-slate-900 tracking-wide bg-slate-50/50"
+            >
               Minimum Payable - {b.minPayable}
             </div>
           )}
